@@ -21,6 +21,10 @@ export const registerValidation = z.object({
     errorMap: () => ({ message: "Role tidak valid" }),
   }),
 
+  gender: z.enum(["male", "female"], {
+    errorMap: () => ({ message: "Gender must be 'male' or 'female'" }),
+  }),
+
   noHandphone: z
     .string({ required_error: "No handphone wajib diisi" })
     .min(10, "No handphone minimal 10 digit")

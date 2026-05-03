@@ -6,6 +6,6 @@ export function hashPassword(password) {
   return hash;
 }
 
-// export function comparePassword(password, hash) {
-//   return bcrypt.compareSync(password, hash);
-// }
+export function comparePassword(password, hash) {
+  return bcrypt.compareSync(password, hash);
+}
