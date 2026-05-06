@@ -1,30 +1,9 @@
 import { randomInt } from "crypto";
 import { defaultRedisClient } from "../configs/redis.config.js";
-import { emailService } from "./email.service.js";
 
 class OTPService {
-  constructor() {
-    this.OTP_PREFIX = "otp:";
-    this.OTP_EXPIRY = 300; // 5 minutes in seconds
-  }
-
   generateOTP() {
     return randomInt(100000, 999999).toString();
-  }
-
-  async sendOTP(email, otp) {
-    const otpData = {
-      email,
-      otp,
-      expiresAt: new Date(Date.now() + this.OTP_EXPIRY * 1000),
-    };
-
-    const key = `${this.OTP_PREFIX}${email}`;
-    // ioredis exposes commands as lowercase methods (e.g. setex)
-    await defaultRedisClient.setex(key, this.OTP_EXPIRY, JSON.stringify(otpData));
-
-    await emailService.sendOTPEmail(email, otp);
-    return otp;
   }
 
   async getEmailOTP(email) {
@@ -37,19 +16,20 @@ class OTPService {
   }
 
   async verifyOTP(email, otp) {
-    const otpData = await this.getEmailOTP(email);
+    const storedOTP = await defaultRedisClient.get(`otp:${email}`);
 
-    if (!otpData) return false;
+    if (!storedOTP)
+      return {
+        ok: false,
+        reason: "expired",
+      };
 
-    if (new Date(otpData.expiresAt) < new Date()) {
-      await this.deleteOTP(email);
-      return false;
+    if (storedOTP !== otp) {
+      return { ok: false, reason: "invalid" };
     }
 
-    if (otpData.otp !== otp) return false;
-
     await this.deleteOTP(email);
-    return true;
+    return { ok: true };
   }
 
   async deleteOTP(email) {

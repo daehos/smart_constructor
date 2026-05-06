@@ -38,6 +38,16 @@ export const registerValidation = z.object({
     .regex(/[0-9]/, "Password harus ada angka"),
 });
 
+export const registerOTPValidation = z.object({
+  email: z
+    .string({ required_error: "Email wajib diisi" })
+    .email("Format email tidak valid"),
+
+  otp: z
+    .string({ required_error: "OTP wajib diisi" })
+    .min(1, "OTP wajib diisi"),
+});
+
 export const loginValidation = z.object({
   email: z
     .string({ required_error: "Email wajib diisi" })

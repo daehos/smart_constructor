@@ -25,7 +25,6 @@ app.get("/", (req, res) => {
 
 app.use(`/api/${config.app.apiVersion}`, routes);
 app.use((err, req, res, next) => {
-  console.log(err, "<<<ISELOG");
   errorHandler(err, req, res, next);
 });
 

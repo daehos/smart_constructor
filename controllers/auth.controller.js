@@ -4,16 +4,16 @@ export default class AuthController {
   static async register(req, res, next) {
     try {
       const result = await AuthService.register(req.body);
-      
+
       res.status(200).json({ status: "success", data: result });
     } catch (error) {
       next(error);
     }
   }
 
-  static async verifyRegisterOTP(req, res, next) {
+  static async verifyOTP(req, res, next) {
     try {
-      const result = await AuthService.verifyRegisterOTP(req.body);
+      const result = await AuthService.verifyOTP(req.body);
       res.status(201).json({ status: "success", data: result });
     } catch (error) {
       try {

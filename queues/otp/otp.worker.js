@@ -2,14 +2,14 @@ import { Worker } from "bullmq";
 
 import { workerRedisClient } from "../../configs/redis.config.js";
 import constants from "../../constants/index.js";
-import { otpService } from "../../services/otp.service.js";
+import { emailService } from "../../services/email.service.js";
 
 export const otpWorker = new Worker(
   constants.QUEUES.OTP,
   async (job) => {
     switch (job.name) {
       case constants.JOBS.SEND_OTP:
-        await otpService.sendOTP(job.data.email, job.data.otp);
+        await emailService.sendOTPEmail(job.data.email, job.data.otp);
         break;
 
       default:
