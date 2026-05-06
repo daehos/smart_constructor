@@ -1,17 +1,16 @@
-import dotenv from "dotenv";
 import mongoose from "mongoose";
+import { config } from "./env.js";
 
-dotenv.config();
-
-const MONGODB_URI =
-  process.env.MONGODB_URI || "mongodb://localhost:27017/smart_constructor";
-
-export const connectDB = async () => {
+export async function initMongoDB() {
   try {
-    await mongoose.connect(MONGODB_URI);
-    console.info("✅ MongoDB connected!", mongoose.connection.name);
+    await mongoose.connect(config.mongodb.uri);
+
+    await mongoose.connection.db.admin().ping();
+
+    console.info("connected to mongodb");
   } catch (error) {
-    console.error("❌ MongoDB connection error:", error);
+    console.error("failed connecting to mongodb", error);
+
     process.exit(1);
   }
-};
+}

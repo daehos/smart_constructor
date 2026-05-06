@@ -1,5 +1,5 @@
 import { randomInt } from "crypto";
-import redis from "../configs/redis.config.js";
+import { redis } from "../configs/redis.config.js";
 import { emailService } from "./email.service.js";
 
 class OTPService {
