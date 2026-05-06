@@ -1,28 +1,47 @@
-import { createClient } from "redis";
+import Redis from "ioredis";
 import { config } from "./env.js";
 
-export const redis = createClient({
+export const defaultRedisClient = new Redis({
+  host: config.redis.host,
+  port: config.redis.port,
   username: config.redis.username,
   password: config.redis.password,
-  socket: {
-    host: config.redis.host,
-    port: config.redis.port,
-  },
+
+  maxRetriesPerRequest: null,
 });
 
-redis.on("error", (err) => {
-  console.error("redis client error", err);
+export const workerRedisClient = new Redis({
+  host: config.redis.host,
+  port: config.redis.port,
+  username: config.redis.username,
+  password: config.redis.password,
+
+  maxRetriesPerRequest: null,
 });
 
-export async function initRedis() {
+export async function initRedis(client, name = "default") {
+  client.on("connect", () => {
+    console.info(`connected to ${name} redis`);
+  });
+
+  client.on("error", (err) => {
+    console.error(`failed connecting to ${name} redis`, err);
+  });
+
+  await checkRedisConnection(client, name);
+
+  return client;
+}
+
+export async function checkRedisConnection(client, name) {
   try {
-    await redis.connect();
+    const pong = await client.ping();
 
-    await redis.ping();
-
-    console.info("connected to redis");
+    if (pong !== "PONG") {
+      throw new Error(`invalid ${name} redis ping response`);
+    }
   } catch (err) {
-    console.error("failed connecting to redis", err);
+    console.error(`failed connecting to ${name} redis`, err);
 
     process.exit(1);
   }

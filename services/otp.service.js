@@ -1,5 +1,5 @@
 import { randomInt } from "crypto";
-import { redis } from "../configs/redis.config.js";
+import { defaultRedisClient } from "../configs/redis.config.js";
 import { emailService } from "./email.service.js";
 
 class OTPService {
@@ -12,8 +12,7 @@ class OTPService {
     return randomInt(100000, 999999).toString();
   }
 
-  async sendOTP(email) {
-    const otp = this.generateOTP();
+  async sendOTP(email, otp) {
     const otpData = {
       email,
       otp,
@@ -21,7 +20,8 @@ class OTPService {
     };
 
     const key = `${this.OTP_PREFIX}${email}`;
-    await redis.SETEX(key, this.OTP_EXPIRY, JSON.stringify(otpData));
+    // ioredis exposes commands as lowercase methods (e.g. setex)
+    await defaultRedisClient.setex(key, this.OTP_EXPIRY, JSON.stringify(otpData));
 
     await emailService.sendOTPEmail(email, otp);
     return otp;
@@ -29,7 +29,7 @@ class OTPService {
 
   async getEmailOTP(email) {
     const key = `${this.OTP_PREFIX}${email}`;
-    const data = await redis.get(key);
+    const data = await defaultRedisClient.get(key);
 
     if (!data) return null;
 
@@ -54,7 +54,7 @@ class OTPService {
 
   async deleteOTP(email) {
     const key = `${this.OTP_PREFIX}${email}`;
-    await redis.del(key);
+    await defaultRedisClient.del(key);
   }
 }
 

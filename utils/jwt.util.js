@@ -1,14 +1,12 @@
-import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
-
-dotenv.config();
+import { config } from "../configs/env.js";
 
 export function signToken(data) {
-  const token = jwt.sign(data, process.env.JWT_SECRET);
+  const token = jwt.sign(data, config.jwt.secret);
   return token;
 }
 
 export function verifyToken(token) {
-  const data = jwt.verify(token, process.env.JWT_SECRET);
+  const data = jwt.verify(token, config.jwt.secret);
   return data;
 }

@@ -1,26 +1,23 @@
+import { BaseError } from "../errors/index.js";
+
 export function errorHandler(err, _req, res, _next) {
-  switch (err.name) {
-    case "ValidationError": // Mongoose validation error
-      res.status(400).json({ message: err.errors?.[0].message || err.message });
-      break;
-    case "BadRequest":
-      res.status(400).json({ message: err.message });
-      break;
-    case "Unauthorized":
-      res.status(401).json({ message: err.message });
-      break;
-    case "JsonWebTokenError":
-      res.status(401).json({ message: "Invalid token" });
-      break;
-    case "Forbidden":
-      res.status(403).json({ message: err.message });
-      break;
-    case "NotFound":
-      res.status(404).json({ message: err.message });
-      break;
-    default:
-      console.error(err, "<<<ISELOG");
-      res.status(500).json({ message: "Internal server error" });
-      break;
+  console.error(err);
+
+  if (err instanceof BaseError) {
+    const statusCode =
+      Number.isInteger(err.statusCode) && err.statusCode >= 400 && err.statusCode <= 599
+        ? err.statusCode
+        : 500;
+
+    return res.status(statusCode).json({
+      success: false,
+      message: err.message,
+      details: err.details,
+    });
   }
+
+  return res.status(500).json({
+    success: false,
+    message: "Internal server error",
+  });
 }

@@ -1,4 +1,8 @@
+import { z } from "zod";
+import constants from "../constants/index.js";
+import { BadRequestError, ValidationError } from "../errors/index.js";
 import User from "../models/user.model.js";
+import { otpQueue } from "../queues/otp/otp.queue.js";
 import { comparePassword, hashPassword } from "../utils/bcrypt.util.js";
 import { signToken } from "../utils/jwt.util.js";
 import {
@@ -11,20 +15,27 @@ export default class AuthService {
   // Step 1: Validasi data & kirim OTP
   static async register(body) {
     const parsed = registerValidation.safeParse(body);
+
     if (!parsed.success) {
-      throw new Error(JSON.stringify(parsed.error.flatten().fieldErrors));
+      throw new ValidationError({
+        details: z.flattenError(parsed.error).fieldErrors,
+      });
     }
 
     const { email } = parsed.data;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      throw new Error(JSON.stringify({ email: ["Email already exists"] }));
+      throw new BadRequestError({
+        details: "email already exists",
+      });
     }
 
-    await otpService.sendOTP(email); // ← langsung sendOTP, udah include kirim email
+    const otp = otpService.generateOTP();
 
-    return { message: "OTP sent to email, please verify" };
+    await otpQueue.add(constants.JOBS.SEND_OTP, { email, otp });
+
+    return { message: "user has been registered, please verify your email" };
   }
 
   // Step 2: Verifikasi OTP & simpan user
@@ -43,6 +54,7 @@ export default class AuthService {
     const { email } = parsed.data;
 
     const isValidOTP = await otpService.verifyOTP(email, otp);
+    console.log(isValidOTP);
     if (!isValidOTP) {
       throw new Error(JSON.stringify({ otp: ["Invalid or expired OTP"] }));
     }
@@ -89,7 +101,7 @@ export default class AuthService {
     try {
       // Generate and send OTP
       const email = user.email;
-      await otpService.sendOTP(email);
+      await otpService.sendOTP(email, { delivery: "async" });
 
       return {
         message: "OTP has been sent to your email",
