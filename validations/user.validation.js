@@ -6,36 +6,39 @@ export const registerValidation = z.object({
     .min(1, "Nama wajib diisi")
     .trim(),
 
-  nik: z
-    .string({ required_error: "NIK wajib diisi" })
-    .length(16, "NIK harus 16 digit")
-    .regex(/^\d+$/, "NIK harus berupa angka"),
-
   email: z
     .string({ required_error: "Email wajib diisi" })
     .min(1, "Email wajib diisi")
-    .email("Format email tidak valid")
+    .email("Format email tidak valid (contoh: nama@email.com)")
     .toLowerCase(),
 
-  role: z.enum(["hr", "admin_finance", "admin_pengadaan", "owner", "pekerja"], {
-    errorMap: () => ({ message: "Role tidak valid" }),
-  }),
+  role: z
+    .enum(["hr", "admin_finance", "admin_pengadaan", "owner", "pekerja"], {
+      errorMap: () => ({ message: "Role tidak valid" }),
+    })
+    .optional()
+    .default("pekerja"),
 
   gender: z.enum(["male", "female"], {
-    errorMap: () => ({ message: "Gender must be 'male' or 'female'" }),
+    errorMap: () => ({ message: "Gender harus 'male' atau 'female'" }),
   }),
 
-  noHandphone: z
-    .string({ required_error: "No handphone wajib diisi" })
-    .min(10, "No handphone minimal 10 digit")
-    .max(15, "No handphone maksimal 15 digit")
-    .regex(/^\+?[\d\s-]+$/, "Format no handphone tidak valid"),
+  phoneNumber: z
+    .string({ required_error: "Nomor telepon wajib diisi" })
+    .min(7, "Nomor telepon minimal 7 karakter")
+    .max(15, "Nomor telepon maksimal 15 karakter")
+    .regex(/^\+?[\d\s-]+$/, "Format nomor telepon tidak valid"),
+
+  tanggalLahir: z
+    .string({ required_error: "Tanggal lahir wajib diisi" })
+    .refine((v) => !Number.isNaN(Date.parse(v)), "Format tanggal lahir tidak valid (contoh: 1988-12-25)"),
+
+  kategoriSpesialisasi: z.string().trim().optional().nullable(),
 
   password: z
-    .string({ required_error: "Password wajib diisi" })
-    .min(8, "Password minimal 8 karakter")
-    .regex(/[A-Z]/, "Password harus ada huruf kapital")
-    .regex(/[0-9]/, "Password harus ada angka"),
+    .string({ required_error: "Kata sandi wajib diisi" })
+    .min(8, "Minimal 8 karakter")
+    .regex(/[0-9!@#$%^&*]/, "Minimal 1 angka atau simbol"),
 });
 
 export const registerOTPValidation = z.object({
@@ -54,6 +57,6 @@ export const loginValidation = z.object({
     .email("Format email tidak valid"),
 
   password: z
-    .string({ required_error: "Password wajib diisi" })
-    .min(1, "Password wajib diisi"),
+    .string({ required_error: "Kata sandi wajib diisi" })
+    .min(1, "Kata sandi wajib diisi"),
 });

@@ -1,3 +1,5 @@
+import UserService from "../services/user.service.js";
+
 export default class UserController {
   static async getProfile(req, res, next) {
     try {

@@ -7,12 +7,6 @@ const userSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    nik: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-    },
     email: {
       type: String,
       required: true,
@@ -23,9 +17,9 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: ["hr", "admin_finance", "admin_pengadaan", "owner", "pekerja"],
-      required: true,
+      default: "pekerja",
     },
-    noHandphone: {
+    phoneNumber: {
       type: String,
       required: true,
       trim: true,
@@ -35,13 +29,23 @@ const userSchema = new mongoose.Schema(
       enum: ["male", "female"],
       required: true,
     },
+    tanggalLahir: {
+      type: Date,
+      required: true,
+    },
+    kategoriSpesialisasi: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     password: {
       type: String,
       required: true,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const User = mongoose.model("User", userSchema);
+
 export default User;

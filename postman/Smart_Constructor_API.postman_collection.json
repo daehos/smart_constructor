@@ -1,0 +1,677 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "Smart Constructor API",
+    "description": "Import this file into Postman. Collection variables: `host`, `baseUrl` (default http://localhost:8080/api/v1), `accessToken`, ids. After **Auth → Register**, set **otp_code** to the OTP from email, then run **Verify OTP** — accessToken saves automatically. Protected routes use Bearer `{{accessToken}}`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "host", "value": "http://localhost:8080" },
+    { "key": "baseUrl", "value": "http://localhost:8080/api/v1" },
+    { "key": "accessToken", "value": "" },
+    { "key": "register_email", "value": "" },
+    { "key": "otp_code", "value": "000000" },
+    { "key": "vendor_id", "value": "" },
+    { "key": "project_id", "value": "" },
+    { "key": "material_id", "value": "" },
+    { "key": "order_id", "value": "" },
+    { "key": "worker_id", "value": "" },
+    { "key": "payroll_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Root",
+      "item": [
+        {
+          "name": "Welcome",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{host}}/",
+            "description": "Public health / welcome endpoint."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "try {",
+                  "  const body = JSON.parse(pm.request.body.raw);",
+                  "  if (body.email) pm.collectionVariables.set('register_email', body.email);",
+                  "} catch (e) {}",
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nama\": \"Postman Test User\",\n  \"email\": \"postman-test@example.com\",\n  \"gender\": \"male\",\n  \"phoneNumber\": \"+6281212345678\",\n  \"tanggalLahir\": \"1990-05-15\",\n  \"kategoriSpesialisasi\": \"Tukang Batu\",\n  \"password\": \"Postman1!\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/register",
+            "description": "Sends OTP to email. Copy OTP from email into collection variable **otp_code**, then call Verify OTP. `role` is optional (defaults to `pekerja`)."
+          }
+        },
+        {
+          "name": "Verify OTP",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data.access_token) {",
+                  "  pm.collectionVariables.set('accessToken', json.data.access_token);",
+                  "}",
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{register_email}}\",\n  \"otp\": \"{{otp_code}}\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/verify-otp",
+            "description": "Set **otp_code** in collection variables to the 6-digit code from email after Register."
+          }
+        },
+        {
+          "name": "Login (send OTP)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner@proyek.in\",\n  \"password\": \"Admin123!\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login",
+            "description": "Sends login OTP to email. After receiving OTP, run Verify OTP to get accessToken."
+          }
+        }
+      ]
+    },
+    {
+      "name": "User",
+      "item": [
+        {
+          "name": "Get profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/profile",
+            "description": "Requires Bearer accessToken."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vendors",
+      "item": [
+        {
+          "name": "List vendors",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/vendors?page=1&limit=20&q=&kategoriSpesialisasi=",
+            "description": "Search and filter vendors. Leave q empty for all."
+          }
+        },
+        {
+          "name": "Create vendor",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data._id) { pm.collectionVariables.set('vendor_id', json.data._id); }",
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"telepon\": \"+62 21 555 0192\",\n  \"email\": \"sales@pilarbaja.example.com\",\n  \"website\": \"https://www.pilarbaja.example.com\",\n  \"namaPerusahaan\": \"PT Pilar Baja Nusantara\",\n  \"alamatPerusahaan\": \"Jl. Jenderal Sudirman No. 86, Jakarta Pusat\",\n  \"kategoriSpesialisasi\": \"Baja Struktural\",\n  \"subKategori\": [\"H-Beam\", \"WF\", \"Rebar\"],\n  \"riwayatHargaMaterial\": [\n    {\n      \"namaMaterial\": \"H-Beam 200x200\",\n      \"hargaTerakhir\": 18500,\n      \"satuanHarga\": \"/kg\",\n      \"namaProyek\": \"Klapa Village\"\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/vendors",
+            "description": "Creates vendor; saves `_id` to **vendor_id**. `namaBrand` is auto-derived from `namaPerusahaan` if omitted."
+          }
+        },
+        {
+          "name": "Get vendor by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/vendors/{{vendor_id}}"
+          }
+        },
+        {
+          "name": "Update vendor",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"website\": \"https://www.pilarbaja.co.id\",\n  \"telepon\": \"+62 21 555 0193\"\n}"
+            },
+            "url": "{{baseUrl}}/vendors/{{vendor_id}}"
+          }
+        },
+        {
+          "name": "Delete vendor (soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/vendors/{{vendor_id}}"
+          }
+        },
+        {
+          "name": "Material price history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/vendors/{{vendor_id}}/material-history?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Add material price row",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"namaMaterial\": \"Rebar D16 (BJTS 420)\",\n  \"hargaTerakhir\": 13200,\n  \"satuanHarga\": \"/kg\",\n  \"namaProyek\": \"Sudirman Tower\"\n}"
+            },
+            "url": "{{baseUrl}}/vendors/{{vendor_id}}/material-history"
+          }
+        },
+        {
+          "name": "Audit history",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/vendors/{{vendor_id}}/audit?page=1&limit=20"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Projects",
+      "item": [
+        {
+          "name": "List projects",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects?page=1&limit=20&q="
+          }
+        },
+        {
+          "name": "Create project",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data._id) { pm.collectionVariables.set('project_id', json.data._id); }",
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nama\": \"Klapa Village\",\n  \"lokasi\": \"Jl. Klapa Dua Raya, Jakarta Barat\"\n}"
+            },
+            "url": "{{baseUrl}}/projects"
+          }
+        },
+        {
+          "name": "Get project by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}"
+          }
+        },
+        {
+          "name": "Update project",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lokasi\": \"Jl. Klapa Dua Raya No.10, Jakarta Barat\"\n}"
+            },
+            "url": "{{baseUrl}}/projects/{{project_id}}"
+          }
+        },
+        {
+          "name": "Delete project",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/projects/{{project_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Materials",
+      "item": [
+        {
+          "name": "Price comparison",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/materials/price-comparison?material=H-Beam&sort=price_asc&page=1&limit=20",
+            "description": "Vendor price comparison from riwayatHargaMaterial."
+          }
+        },
+        {
+          "name": "List materials",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/materials?page=1&limit=20&q=&kategori="
+          }
+        },
+        {
+          "name": "Create material",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data._id) { pm.collectionVariables.set('material_id', json.data._id); }",
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nama\": \"H-Beam 200x200\",\n  \"kategori\": \"Baja Struktural\",\n  \"subKategori\": \"H-Beam\",\n  \"satuan\": \"kg\"\n}"
+            },
+            "url": "{{baseUrl}}/materials"
+          }
+        },
+        {
+          "name": "Get material by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/materials/{{material_id}}"
+          }
+        },
+        {
+          "name": "Update material",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"subKategori\": \"Wide Flange\"\n}"
+            },
+            "url": "{{baseUrl}}/materials/{{material_id}}"
+          }
+        },
+        {
+          "name": "Delete material",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/materials/{{material_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders",
+      "item": [
+        {
+          "name": "Create order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data._id) { pm.collectionVariables.set('order_id', json.data._id); }",
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendor\": \"{{vendor_id}}\",\n  \"pesan\": \"Mohon kirim hari ini jika memungkinkan.\",\n  \"items\": [\n    {\n      \"namaProduk\": \"H-Beam 200x200\",\n      \"kategoriMaterial\": \"Baja Struktural\",\n      \"subKategoriMaterial\": \"H-Beam\",\n      \"jumlah\": 500,\n      \"hargaSatuan\": 18500\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/orders"
+          }
+        },
+        {
+          "name": "List orders",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/orders?status=semua&q=&month=&page=1&limit=20",
+            "description": "status: semua | dikirim | selesai | dibatalkan | pengembalian. month: YYYY-MM."
+          }
+        },
+        {
+          "name": "Get order by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/orders/{{order_id}}"
+          }
+        },
+        {
+          "name": "Cancel order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/orders/{{order_id}}/cancel",
+            "description": "Only while status is dikirim."
+          }
+        },
+        {
+          "name": "Return order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/orders/{{order_id}}/return",
+            "description": "Only when status is selesai."
+          }
+        },
+        {
+          "name": "Repeat order (Beli Lagi)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/orders/{{order_id}}/repeat",
+            "description": "Creates a new order copying line items."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Workers",
+      "item": [
+        {
+          "name": "List workers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/workers?page=1&limit=20&q=&keahlian=",
+            "description": "Filter by name (q) or skill (keahlian)."
+          }
+        },
+        {
+          "name": "Create worker",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data._id) { pm.collectionVariables.set('worker_id', json.data._id); }",
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nama\": \"Suparman\",\n  \"email\": \"suparman@example.com\",\n  \"telepon\": \"0811111111\",\n  \"gender\": \"male\",\n  \"tanggalLahir\": \"1985-04-10\",\n  \"keahlian\": [\"Tukang Batu\", \"Tukang Besi\"],\n  \"alamat\": \"Jl. Mangga No.1, Jakarta Timur\"\n}"
+            },
+            "url": "{{baseUrl}}/workers"
+          }
+        },
+        {
+          "name": "Get worker by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/workers/{{worker_id}}"
+          }
+        },
+        {
+          "name": "Update worker",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"telepon\": \"0822222222\",\n  \"keahlian\": [\"Tukang Batu\", \"Tukang Besi\", \"Mandor\"]\n}"
+            },
+            "url": "{{baseUrl}}/workers/{{worker_id}}"
+          }
+        },
+        {
+          "name": "Delete worker (soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/workers/{{worker_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Attendance",
+      "item": [
+        {
+          "name": "Clock In",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": -6.2615,\n  \"lng\": 106.9335\n}"
+            },
+            "url": "{{baseUrl}}/attendance/clock-in",
+            "description": "Returns `{ withinRadius, attendance }`. Site: Klapa Village (-6.2615, 106.9335, 100m radius). Throws 400 if outside radius or already clocked in today."
+          }
+        },
+        {
+          "name": "Clock Out",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": -6.2615,\n  \"lng\": 106.9335\n}"
+            },
+            "url": "{{baseUrl}}/attendance/clock-out",
+            "description": "Throws 400 if not yet clocked in or already clocked out."
+          }
+        },
+        {
+          "name": "Get today",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/attendance/today",
+            "description": "Returns today's attendance record for the logged-in user."
+          }
+        },
+        {
+          "name": "List my attendance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/attendance/me?from=2025-01-01&to=2025-12-31&page=1&limit=30"
+          }
+        },
+        {
+          "name": "Month calendar",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/attendance/me/calendar?month=2025-05",
+            "description": "Returns all days in the month with status, clockIn, clockOut."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payroll",
+      "item": [
+        {
+          "name": "List payroll (admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/payroll?period=2025-03&page=1&limit=20",
+            "description": "Filter by user and/or period (YYYY-MM)."
+          }
+        },
+        {
+          "name": "Create payroll",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data._id) { pm.collectionVariables.set('payroll_id', json.data._id); }",
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user\": \"USER_ID_HERE\",\n  \"period\": { \"year\": 2025, \"month\": 4 },\n  \"gajiPokok\": 5000000,\n  \"components\": [\n    { \"name\": \"Tunjangan Makan\", \"type\": \"earning\", \"amount\": 500000 },\n    { \"name\": \"Tunjangan Transport\", \"type\": \"earning\", \"amount\": 300000 },\n    { \"name\": \"BPJS Kesehatan\", \"type\": \"deduction\", \"amount\": 150000 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/payroll",
+            "description": "Auto-computes totalEarning, totalDeduction, netSalary."
+          }
+        },
+        {
+          "name": "Get my payroll",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/payroll/me?period=2025-03"
+          }
+        },
+        {
+          "name": "Get payroll by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/payroll/{{payroll_id}}"
+          }
+        },
+        {
+          "name": "Update payroll",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gajiPokok\": 5500000,\n  \"components\": [\n    { \"name\": \"Tunjangan Makan\", \"type\": \"earning\", \"amount\": 500000 },\n    { \"name\": \"BPJS Kesehatan\", \"type\": \"deduction\", \"amount\": 165000 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/payroll/{{payroll_id}}",
+            "description": "Cannot update if status is paid."
+          }
+        },
+        {
+          "name": "Mark paid",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/payroll/{{payroll_id}}/mark-paid",
+            "description": "Sets status=paid, paidAt=now, paidBy=req.user."
+          }
+        },
+        {
+          "name": "Delete payroll (soft)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/payroll/{{payroll_id}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Activity Logs",
+      "item": [
+        {
+          "name": "List all (admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/activity-logs?resource=Vendor&action=VENDOR_CREATE&page=1&limit=20",
+            "description": "Filter by user, resource, action."
+          }
+        },
+        {
+          "name": "My activity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/activity-logs/me?page=1&limit=20",
+            "description": "Activity logs for the currently authenticated user."
+          }
+        }
+      ]
+    }
+  ]
+}

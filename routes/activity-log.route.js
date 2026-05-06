@@ -1,10 +1,12 @@
 import { Router } from "express";
-import UserController from "../controllers/user.controller.js";
+import ActivityLogController from "../controllers/activity-log.controller.js";
 import { authenticateJWT } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
 router.use(authenticateJWT);
-router.get("/profile", UserController.getProfile);
+
+router.get("/", ActivityLogController.list);
+router.get("/me", ActivityLogController.listMe);
 
 export default router;

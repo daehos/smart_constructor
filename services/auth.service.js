@@ -16,6 +16,7 @@ import {
   registerOTPValidation,
   registerValidation,
 } from "../validations/user.validation.js";
+import { logActivity } from "./activity-log.service.js";
 import { otpService } from "./otp.service.js";
 
 export default class AuthService {
@@ -54,8 +55,9 @@ export default class AuthService {
     const pipelineResults = await pipeline.exec();
 
     for (const [err] of pipelineResults) {
-      console.log(err);
       if (err) {
+        console.error(err);
+
         throw new InternalServerError({
           details: "failed to register user",
         });
@@ -77,6 +79,9 @@ export default class AuthService {
 
     const { email, otp } = parsed.data;
 
+    // Read user payload before verifyOTP deletes the otp key
+    const pendingUserRaw = await defaultRedisClient.get(`user:${email}`);
+
     const { ok, error } = await otpService.verifyOTP(email, otp);
     if (!ok) {
       const details = error === "expired" ? "OTP expired" : "Invalid OTP";
@@ -86,41 +91,34 @@ export default class AuthService {
       });
     }
 
-    const parsedOTP = await defaultRedisClient.get(`otp:${email}`);
-
-    console.log(parsedOTP);
-    if (!parsedOTP) {
-      throw new BadRequestError({
-        details:
-          "registration timeout, please retry registration from the beginning",
-      });
-    }
-
     let userId = null;
     const existingUser = await User.findOne({ email });
     if (!existingUser) {
-      const pendingUser = await defaultRedisClient.get(`user:${email}`);
-      if (!pendingUser) {
+      if (!pendingUserRaw) {
         throw new BadRequestError({
           details:
             "registration timeout, please retry registration from the beginning",
         });
       }
 
+      const pendingUser = JSON.parse(pendingUserRaw);
+
       const user = await User.create({
-        ...JSON.parse(pendingUser),
+        ...pendingUser,
+        tanggalLahir: pendingUser.tanggalLahir
+          ? new Date(pendingUser.tanggalLahir)
+          : undefined,
       });
 
       userId = user._id;
-
       await defaultRedisClient.del(`user:${email}`);
     } else {
       userId = existingUser._id;
     }
 
-    await defaultRedisClient.del(`otp:${email}`);
-
     const access_token = signToken({ id: userId });
+
+    logActivity({ actorId: userId, action: "LOGIN", resource: "User", resourceId: userId });
 
     return {
       access_token,
@@ -130,7 +128,9 @@ export default class AuthService {
   static async login(credentials) {
     const parsed = loginValidation.safeParse(credentials);
     if (!parsed.success) {
-      throw new Error(JSON.stringify(parsed.error.flatten().fieldErrors));
+      throw new ValidationError({
+        details: z.flattenError(parsed.error).fieldErrors,
+      });
     }
 
     const { email, password } = parsed.data;
