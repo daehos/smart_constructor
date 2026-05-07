@@ -1,0 +1,73 @@
+# Full stack: API + MongoDB + Redis (self-hosted).
+# Requires .env with at least JWT_SECRET, API_VERSION, REDIS_PASSWORD, and any overrides.
+# Run: docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+#
+# Host port defaults to 8080 -> container PORT 3000. Set HOST_PORT to change the host side.
+
+name: smart-constructor-prod
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-8080}:3000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      MONGODB_URI: mongodb://mongo:27017/smart_constructor
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_USERNAME: default
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_prod_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: smart_constructor
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "mongodb://127.0.0.1:27017/smart_constructor",
+          "--eval",
+          "db.runCommand({ ping: 1 }).ok",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+    command:
+      ["sh", "-c", 'exec redis-server --requirepass "$$REDIS_PASSWORD"']
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  mongo_prod_data:

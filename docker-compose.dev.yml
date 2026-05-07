@@ -1,0 +1,81 @@
+# Dev stack
+#
+# Mongo + Redis only (default):
+#   docker compose -f docker-compose.dev.yml up -d
+#   make docker-dev-up
+#
+# API in Docker (nodemon, bind-mounted source) + Mongo + Redis:
+#   docker compose -f docker-compose.dev.yml --profile api up -d --build
+#   make docker-dev-api-up
+#
+# Host API with Docker deps: use .env with localhost URIs, then make dev
+
+name: smart-constructor-dev
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_dev_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: smart_constructor
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "mongodb://127.0.0.1:27017/smart_constructor",
+          "--eval",
+          "db.runCommand({ ping: 1 }).ok",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--requirepass", "dev_redis_secret"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "dev_redis_secret", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    profiles: ["api"]
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    ports:
+      - "${DEV_HOST_PORT:-8080}:8080"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      PORT: "8080"
+      MONGODB_URI: mongodb://mongo:27017/smart_constructor
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_USERNAME: default
+      REDIS_PASSWORD: dev_redis_secret
+    volumes:
+      - .:/app
+      - dev_api_node_modules:/app/node_modules
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  mongo_dev_data:
+  dev_api_node_modules:
