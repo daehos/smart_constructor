@@ -28,7 +28,15 @@ export default class AttendanceService {
       throw new BadRequestError({ details: "Sudah clock-in hari ini" });
     }
 
-    const withinRadius = isWithinRadius(lat, lng, SITE.lat, SITE.lng, SITE.radiusMeters);
+    const withinRadius = isWithinRadius(
+      lat,
+      lng,
+      SITE.lat,
+      SITE.lng,
+      SITE.radiusMeters,
+    );
+
+    console.log(lat, lng, SITE.lat, SITE.lng, SITE.radiusMeters);
 
     if (!withinRadius) {
       throw new BadRequestError({ details: "Anda berada di luar radius" });
@@ -48,7 +56,9 @@ export default class AttendanceService {
   static async clockOut(body, userId) {
     const parsed = clockEventValidation.safeParse(body);
     if (!parsed.success) {
-      throw new ValidationError({ details: z.flattenError(parsed.error).fieldErrors });
+      throw new ValidationError({
+        details: z.flattenError(parsed.error).fieldErrors,
+      });
     }
 
     const { lat, lng } = parsed.data;
@@ -62,7 +72,13 @@ export default class AttendanceService {
       throw new BadRequestError({ details: "Sudah clock-out hari ini" });
     }
 
-    const withinRadius = isWithinRadius(lat, lng, SITE.lat, SITE.lng, SITE.radiusMeters);
+    const withinRadius = isWithinRadius(
+      lat,
+      lng,
+      SITE.lat,
+      SITE.lng,
+      SITE.radiusMeters,
+    );
 
     attendance.clockOut = { at: new Date(), lat, lng, withinRadius };
     await attendance.save();
@@ -73,13 +89,23 @@ export default class AttendanceService {
   static async getToday(userId) {
     const date = todayString();
     const attendance = await Attendance.findOne({ user: userId, date });
-    return attendance ?? { user: userId, date, clockIn: null, clockOut: null, status: "absent" };
+    return (
+      attendance ?? {
+        user: userId,
+        date,
+        clockIn: null,
+        clockOut: null,
+        status: "absent",
+      }
+    );
   }
 
   static async listMine(query, userId) {
     const parsed = listAttendanceValidation.safeParse(query);
     if (!parsed.success) {
-      throw new ValidationError({ details: z.flattenError(parsed.error).fieldErrors });
+      throw new ValidationError({
+        details: z.flattenError(parsed.error).fieldErrors,
+      });
     }
 
     const { from, to, page, limit } = parsed.data;
@@ -107,7 +133,9 @@ export default class AttendanceService {
   static async monthCalendar(query, userId) {
     const parsed = calendarValidation.safeParse(query);
     if (!parsed.success) {
-      throw new ValidationError({ details: z.flattenError(parsed.error).fieldErrors });
+      throw new ValidationError({
+        details: z.flattenError(parsed.error).fieldErrors,
+      });
     }
 
     const month = parsed.data.month ?? new Date().toISOString().slice(0, 7);

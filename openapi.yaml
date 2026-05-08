@@ -1,0 +1,2385 @@
+openapi: 3.0.3
+info:
+  title: Smart Constructor API
+  version: 0.1.0
+  description: |
+    OpenAPI spec generated from the Express routes/controllers in this repo.
+    Base path is versioned: `/api/{apiVersion}` (see `configs/env.js`).
+
+servers:
+  - url: http://localhost:3000/api/{apiVersion}
+    description: Local development (default port from env)
+    variables:
+      apiVersion:
+        default: v1
+
+# Default: all endpoints require JWT unless overridden per-operation.
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Root
+  - name: Auth
+  - name: User
+  - name: Vendors
+  - name: Projects
+  - name: Materials
+  - name: Orders
+  - name: Workers
+  - name: Attendance
+  - name: Payroll
+  - name: ActivityLogs
+
+paths:
+  /:
+    get:
+      tags: [Root]
+      summary: API welcome message
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  message:
+                    type: string
+                required: [message]
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register (step 1) - validate data and send OTP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "200":
+          description: OTP queued / registration in progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessEnvelope"
+              examples:
+                ok:
+                  value:
+                    status: success
+                    data:
+                      message: register in progress, please check email for OTP code
+        "400":
+          $ref: "#/components/responses/Error400"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Register (step 2) - verify OTP and return access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOtpRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AccessTokenResponse"
+        "400":
+          description: Bad request (OTP invalid/expired, or controller special-case validation error)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ErrorEnvelope"
+                  - $ref: "#/components/schemas/AuthControllerValidationError"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login (step 1) - verify credentials and send OTP
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "201":
+          description: OTP queued for login
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/LoginOtpQueuedResponse"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /profile:
+    get:
+      tags: [User]
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /vendors:
+    get:
+      tags: [Vendors]
+      summary: List vendors (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Q"
+        - name: kategoriSpesialisasi
+          in: query
+          schema: { type: string }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit20"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/VendorListResponse"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+    post:
+      tags: [Vendors]
+      summary: Create vendor
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Vendor" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /vendors/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Vendors]
+      summary: Get vendor by id
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/VendorPopulated" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+    patch:
+      tags: [Vendors]
+      summary: Update vendor (partial)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorUpdateRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Vendor" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+    delete:
+      tags: [Vendors]
+      summary: Soft-delete vendor
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          message: { type: string }
+                        required: [message]
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /vendors/{id}/material-history:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Vendors]
+      summary: Get vendor material price history (in-memory slice pagination)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit20"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/VendorMaterialHistoryResponse" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+    post:
+      tags: [Vendors]
+      summary: Add a vendor material price history record
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MaterialPriceHistoryCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/MaterialPriceHistory" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /vendors/{id}/audit:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Vendors]
+      summary: Get vendor audit history (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit20"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/VendorAuditListResponse" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /projects:
+    get:
+      tags: [Projects]
+      summary: List projects (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit20"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/ProjectListResponse" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+    post:
+      tags: [Projects]
+      summary: Create project
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Project" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /projects/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Projects]
+      summary: Get project by id
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Project" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+    patch:
+      tags: [Projects]
+      summary: Update project (partial)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProjectUpdateRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Project" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+    delete:
+      tags: [Projects]
+      summary: Soft-delete project
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          message: { type: string }
+                        required: [message]
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /materials/price-comparison:
+    get:
+      tags: [Materials]
+      summary: Price comparison from vendor material price history (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: material
+          in: query
+          schema: { type: string }
+        - name: kategoriSpesialisasi
+          in: query
+          schema: { type: string }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [price_asc, price_desc]
+            default: price_asc
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit20"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/MaterialPriceComparisonResponse" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /materials:
+    get:
+      tags: [Materials]
+      summary: List materials (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Q"
+        - name: kategori
+          in: query
+          schema: { type: string }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit20"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/MaterialListResponse" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+    post:
+      tags: [Materials]
+      summary: Create material
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MaterialCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Material" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /materials/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Materials]
+      summary: Get material by id
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Material" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+    patch:
+      tags: [Materials]
+      summary: Update material (partial)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MaterialUpdateRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Material" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+    delete:
+      tags: [Materials]
+      summary: Soft-delete material
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          message: { type: string }
+                        required: [message]
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /orders:
+    post:
+      tags: [Orders]
+      summary: Create order
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OrderCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Order" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+    get:
+      tags: [Orders]
+      summary: List my orders (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [dikirim, selesai, dibatalkan, pengembalian, semua]
+            default: semua
+        - $ref: "#/components/parameters/Q"
+        - name: month
+          in: query
+          description: Filter by order createdAt month (YYYY-MM)
+          schema:
+            type: string
+            pattern: "^\\d{4}-\\d{2}$"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit20"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/OrderListResponse" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /orders/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Orders]
+      summary: Get my order by id
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/OrderPopulated" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /orders/{id}/cancel:
+    post:
+      tags: [Orders]
+      summary: Cancel an order (only if status is "dikirim")
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Order" }
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /orders/{id}/return:
+    post:
+      tags: [Orders]
+      summary: Return an order (only if status is "selesai")
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Order" }
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /orders/{id}/repeat:
+    post:
+      tags: [Orders]
+      summary: Repeat an order (clone items to a new order)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Order" }
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /workers:
+    get:
+      tags: [Workers]
+      summary: List workers (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Q"
+        - name: keahlian
+          in: query
+          schema: { type: string }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit20"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/WorkerListResponse" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+    post:
+      tags: [Workers]
+      summary: Create worker
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkerCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Worker" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /workers/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Workers]
+      summary: Get worker by id
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Worker" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+    patch:
+      tags: [Workers]
+      summary: Update worker (partial)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WorkerUpdateRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Worker" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+    delete:
+      tags: [Workers]
+      summary: Soft-delete worker
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          message: { type: string }
+                        required: [message]
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /attendance/clock-in:
+    post:
+      tags: [Attendance]
+      summary: Clock in (requires within radius)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClockEventRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/ClockEventResponse" }
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /attendance/clock-out:
+    post:
+      tags: [Attendance]
+      summary: Clock out
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ClockEventRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/ClockEventResponse" }
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /attendance/today:
+    get:
+      tags: [Attendance]
+      summary: Get today's attendance record (or default absent)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        oneOf:
+                          - $ref: "#/components/schemas/Attendance"
+                          - $ref: "#/components/schemas/AttendanceAbsentDefault"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /attendance/me:
+    get:
+      tags: [Attendance]
+      summary: List my attendance (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, description: ISO date YYYY-MM-DD }
+        - name: to
+          in: query
+          schema: { type: string, description: ISO date YYYY-MM-DD }
+        - $ref: "#/components/parameters/Page"
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 30 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/AttendanceListResponse" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /attendance/me/calendar:
+    get:
+      tags: [Attendance]
+      summary: Get my attendance monthly calendar grid
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: string
+            pattern: "^\\d{4}-\\d{2}$"
+          description: Month in YYYY-MM (defaults to current month)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/AttendanceCalendarResponse" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /payroll/me:
+    get:
+      tags: [Payroll]
+      summary: Get my payroll (optionally filter by period)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            pattern: "^\\d{4}-\\d{2}$"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/Payroll" }
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /payroll:
+    get:
+      tags: [Payroll]
+      summary: List payroll entries (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user
+          in: query
+          schema: { type: string }
+        - name: period
+          in: query
+          schema:
+            type: string
+            pattern: "^\\d{4}-\\d{2}$"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit20"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/PayrollListResponse" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+    post:
+      tags: [Payroll]
+      summary: Create payroll entry
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PayrollCreateRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Payroll" }
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /payroll/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [Payroll]
+      summary: Get payroll by id
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/PayrollPopulated" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+    patch:
+      tags: [Payroll]
+      summary: Update payroll (partial, cannot update paid payroll)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PayrollUpdateRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Payroll" }
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "422":
+          $ref: "#/components/responses/Error422"
+        "500":
+          $ref: "#/components/responses/Error500"
+    delete:
+      tags: [Payroll]
+      summary: Soft-delete payroll entry
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        additionalProperties: false
+                        properties:
+                          message: { type: string }
+                        required: [message]
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /payroll/{id}/mark-paid:
+    post:
+      tags: [Payroll]
+      summary: Mark payroll as paid
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/Payroll" }
+        "400":
+          $ref: "#/components/responses/Error400"
+        "401":
+          $ref: "#/components/responses/Error401"
+        "404":
+          $ref: "#/components/responses/Error404"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /activity-logs:
+    get:
+      tags: [ActivityLogs]
+      summary: List activity logs (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user
+          in: query
+          schema: { type: string }
+        - name: resource
+          in: query
+          schema: { type: string }
+        - name: action
+          in: query
+          schema: { type: string }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit20"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/ActivityLogListResponse" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+  /activity-logs/me:
+    get:
+      tags: [ActivityLogs]
+      summary: List my activity logs (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: resource
+          in: query
+          schema: { type: string }
+        - name: action
+          in: query
+          schema: { type: string }
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit20"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/SuccessEnvelope"
+                  - type: object
+                    properties:
+                      data: { $ref: "#/components/schemas/ActivityLogListResponse" }
+        "401":
+          $ref: "#/components/responses/Error401"
+        "500":
+          $ref: "#/components/responses/Error500"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Use Authorization: Bearer <token>"
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/ObjectId"
+    Q:
+      name: q
+      in: query
+      schema: { type: string }
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit20:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  responses:
+    Error400:
+      description: Bad request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Error401:
+      description: Unauthorized (missing/invalid/expired JWT or invalid credentials)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Error404:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Error422:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Error500:
+      description: Internal server error
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+  schemas:
+    ObjectId:
+      type: string
+      description: MongoDB ObjectId as hex string
+      pattern: "^[a-fA-F0-9]{24}$"
+
+    SuccessEnvelope:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [success]
+        data:
+          description: Endpoint-specific response payload
+      required: [status, data]
+
+    ErrorEnvelope:
+      type: object
+      description: Default error shape from `middlewares/error.middleware.js`
+      additionalProperties: false
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+          nullable: true
+      required: [success, message]
+
+    AuthControllerValidationError:
+      type: object
+      description: AuthController may return this 400 shape on JSON.parse(error.message) errors
+      additionalProperties: true
+      properties:
+        status:
+          type: string
+          enum: [error]
+        message:
+          type: string
+        data: {}
+      required: [status, message, data]
+
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [nama, email, gender, phoneNumber, tanggalLahir, password]
+      properties:
+        nama: { type: string, minLength: 1 }
+        email: { type: string, format: email }
+        role:
+          type: string
+          enum: [hr, admin_finance, admin_pengadaan, owner, pekerja]
+          default: pekerja
+        gender:
+          type: string
+          enum: [male, female]
+        phoneNumber: { type: string, minLength: 7, maxLength: 15 }
+        tanggalLahir:
+          type: string
+          format: date
+          description: Date string, e.g. 1988-12-25
+        kategoriSpesialisasi:
+          type: string
+          nullable: true
+        password:
+          type: string
+          minLength: 8
+
+    VerifyOtpRequest:
+      type: object
+      additionalProperties: false
+      required: [email, otp]
+      properties:
+        email: { type: string, format: email }
+        otp: { type: string, minLength: 1 }
+
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 1 }
+
+    LoginOtpQueuedResponse:
+      type: object
+      additionalProperties: false
+      required: [message, email]
+      properties:
+        message: { type: string }
+        email: { type: string, format: email }
+
+    AccessTokenResponse:
+      type: object
+      additionalProperties: false
+      required: [access_token]
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+
+    UserProfile:
+      type: object
+      additionalProperties: false
+      properties:
+        nama: { type: string }
+        email: { type: string, format: email }
+        role:
+          type: string
+          enum: [hr, admin_finance, admin_pengadaan, owner, pekerja]
+        phoneNumber: { type: string }
+        gender: { type: string, enum: [male, female] }
+        tanggalLahir:
+          type: string
+          format: date-time
+        kategoriSpesialisasi:
+          type: string
+          nullable: true
+      required: [nama, email, role, phoneNumber, gender, tanggalLahir]
+
+    VendorCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [telepon, email, namaPerusahaan, alamatPerusahaan, kategoriSpesialisasi]
+      properties:
+        namaBrand: { type: string, nullable: true }
+        telepon: { type: string, minLength: 7 }
+        email: { type: string, format: email }
+        website: { type: string, default: "" }
+        namaPerusahaan: { type: string, minLength: 1 }
+        alamatPerusahaan: { type: string, minLength: 1 }
+        kategoriSpesialisasi: { type: string, minLength: 1 }
+        subKategori:
+          type: array
+          items: { type: string }
+          default: []
+        photoUrl: { type: string, format: uri, nullable: true }
+        profilDokumenUrl: { type: string, format: uri, nullable: true }
+        riwayatHargaMaterial:
+          type: array
+          items: { $ref: "#/components/schemas/MaterialPriceHistoryCreateRequest" }
+          default: []
+
+    VendorUpdateRequest:
+      allOf:
+        - $ref: "#/components/schemas/VendorCreateRequest"
+      description: Partial update (all fields optional)
+
+    VendorListItem:
+      type: object
+      additionalProperties: false
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        vendorCode: { type: string }
+        namaBrand: { type: string, nullable: true }
+        namaPerusahaan: { type: string }
+        kategoriSpesialisasi: { type: string }
+        subKategori:
+          type: array
+          items: { type: string }
+        email: { type: string, format: email }
+        alamatPerusahaan: { type: string }
+        photoUrl: { type: string, nullable: true }
+      required: [_id, vendorCode, namaPerusahaan, kategoriSpesialisasi, subKategori, email, alamatPerusahaan]
+
+    VendorListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/VendorListItem" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+
+    MaterialRef:
+      type: object
+      additionalProperties: false
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        nama: { type: string }
+        kategori: { type: string }
+        satuan: { type: string }
+      required: [_id, nama, kategori, satuan]
+
+    ProjectRef:
+      type: object
+      additionalProperties: false
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        nama: { type: string }
+        lokasi: { type: string }
+      required: [_id, nama, lokasi]
+
+    MaterialPriceHistoryCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [namaMaterial, hargaTerakhir, namaProyek]
+      properties:
+        material:
+          $ref: "#/components/schemas/ObjectId"
+          nullable: true
+        namaMaterial: { type: string, minLength: 1 }
+        hargaTerakhir: { type: number, minimum: 0 }
+        satuanHarga: { type: string, default: "/kg" }
+        proyek:
+          $ref: "#/components/schemas/ObjectId"
+          nullable: true
+        namaProyek: { type: string, minLength: 1 }
+
+    MaterialPriceHistory:
+      allOf:
+        - $ref: "#/components/schemas/MaterialPriceHistoryCreateRequest"
+        - type: object
+          properties:
+            _id: { $ref: "#/components/schemas/ObjectId" }
+
+    Vendor:
+      type: object
+      description: Vendor document (may include many fields, including timestamps)
+      additionalProperties: true
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        vendorCode: { type: string }
+        namaBrand: { type: string, nullable: true }
+        telepon: { type: string }
+        email: { type: string, format: email }
+        website: { type: string }
+        namaPerusahaan: { type: string }
+        alamatPerusahaan: { type: string }
+        kategoriSpesialisasi: { type: string }
+        subKategori:
+          type: array
+          items: { type: string }
+        riwayatHargaMaterial:
+          type: array
+          items: { $ref: "#/components/schemas/MaterialPriceHistory" }
+        profilDokumenUrl: { type: string, nullable: true }
+        photoUrl: { type: string, nullable: true }
+        deletedAt: { type: string, format: date-time, nullable: true }
+
+    VendorPopulated:
+      allOf:
+        - $ref: "#/components/schemas/Vendor"
+        - type: object
+          properties:
+            riwayatHargaMaterial:
+              type: array
+              items:
+                allOf:
+                  - $ref: "#/components/schemas/MaterialPriceHistory"
+                  - type: object
+                    properties:
+                      material:
+                        $ref: "#/components/schemas/MaterialRef"
+                        nullable: true
+                      proyek:
+                        $ref: "#/components/schemas/ProjectRef"
+                        nullable: true
+
+    VendorMaterialHistoryResponse:
+      type: object
+      additionalProperties: false
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/MaterialPriceHistory" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+
+    VendorAudit:
+      type: object
+      additionalProperties: true
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        vendor: { $ref: "#/components/schemas/ObjectId" }
+        action: { type: string, enum: [CREATE, UPDATE, DELETE] }
+        changes:
+          type: object
+          additionalProperties: true
+          properties:
+            before:
+              type: object
+              additionalProperties: true
+              nullable: true
+            after:
+              type: object
+              additionalProperties: true
+              nullable: true
+        changedBy:
+          description: Populated user
+          type: object
+          additionalProperties: false
+          properties:
+            _id: { $ref: "#/components/schemas/ObjectId" }
+            nama: { type: string }
+            email: { type: string, format: email }
+          required: [_id, nama, email]
+        changedAt: { type: string, format: date-time }
+
+    VendorAuditListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/VendorAudit" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+
+    ProjectCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [nama]
+      properties:
+        nama: { type: string, minLength: 1 }
+        lokasi: { type: string, default: "" }
+
+    ProjectUpdateRequest:
+      allOf:
+        - $ref: "#/components/schemas/ProjectCreateRequest"
+      description: Partial update (all fields optional)
+
+    Project:
+      type: object
+      additionalProperties: true
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        nama: { type: string }
+        lokasi: { type: string }
+        deletedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [_id, nama, lokasi]
+
+    ProjectListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Project" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+
+    MaterialCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [nama, kategori]
+      properties:
+        nama: { type: string, minLength: 1 }
+        kategori: { type: string, minLength: 1 }
+        subKategori: { type: string, default: "" }
+        satuan: { type: string, default: "kg" }
+
+    MaterialUpdateRequest:
+      allOf:
+        - $ref: "#/components/schemas/MaterialCreateRequest"
+      description: Partial update (all fields optional)
+
+    Material:
+      type: object
+      additionalProperties: true
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        nama: { type: string }
+        kategori: { type: string }
+        subKategori: { type: string }
+        satuan: { type: string }
+        deletedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [_id, nama, kategori, subKategori, satuan]
+
+    MaterialListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Material" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+
+    VendorSummaryForComparison:
+      type: object
+      additionalProperties: false
+      required: [_id, namaBrand, namaPerusahaan, kategoriSpesialisasi, telepon, alamatPerusahaan]
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        namaBrand: { type: string, nullable: true }
+        namaPerusahaan: { type: string }
+        kategoriSpesialisasi: { type: string }
+        telepon: { type: string }
+        alamatPerusahaan: { type: string }
+
+    MaterialPriceComparisonItem:
+      type: object
+      additionalProperties: false
+      required: [vendor, namaMaterial, hargaTerakhir, satuanHarga, namaProyek]
+      properties:
+        vendor: { $ref: "#/components/schemas/VendorSummaryForComparison" }
+        namaMaterial: { type: string }
+        hargaTerakhir: { type: number, minimum: 0 }
+        satuanHarga: { type: string }
+        namaProyek: { type: string }
+
+    MaterialPriceComparisonResponse:
+      type: object
+      additionalProperties: false
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/MaterialPriceComparisonItem" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+
+    OrderItemCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [namaProduk, jumlah, hargaSatuan]
+      properties:
+        material:
+          $ref: "#/components/schemas/ObjectId"
+          nullable: true
+        namaProduk: { type: string, minLength: 1 }
+        kategoriMaterial: { type: string, default: "" }
+        subKategoriMaterial: { type: string, default: "" }
+        jumlah: { type: integer, minimum: 1 }
+        hargaSatuan: { type: number, minimum: 0 }
+        subtotal:
+          type: number
+          minimum: 0
+          description: If omitted, server computes as hargaSatuan * jumlah
+
+    OrderCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [vendor, items]
+      properties:
+        vendor: { $ref: "#/components/schemas/ObjectId" }
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/OrderItemCreateRequest" }
+        pesan: { type: string, default: "" }
+
+    OrderItem:
+      allOf:
+        - $ref: "#/components/schemas/OrderItemCreateRequest"
+        - type: object
+          required: [subtotal]
+
+    OrderShipping:
+      type: object
+      additionalProperties: false
+      properties:
+        kurir: { type: string, default: "" }
+        noResi: { type: string, default: "" }
+        alamatTujuan: { type: string, default: "" }
+        subtotalPengiriman: { type: number, default: 0 }
+        diskonPengiriman: { type: number, default: 0 }
+
+    OrderPayment:
+      type: object
+      additionalProperties: false
+      properties:
+        metode: { type: string, default: "" }
+        voucherDiskon: { type: number, default: 0 }
+        biayaLayanan: { type: number, default: 0 }
+        totalDibayar: { type: number, default: 0 }
+        invoiceUrl: { type: string, nullable: true }
+
+    Order:
+      type: object
+      additionalProperties: true
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        orderNumber: { type: string }
+        vendor: { $ref: "#/components/schemas/ObjectId" }
+        buyer: { $ref: "#/components/schemas/ObjectId" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OrderItem" }
+        pesan: { type: string }
+        status: { type: string, enum: [dikirim, selesai, dibatalkan, pengembalian] }
+        shipping: { $ref: "#/components/schemas/OrderShipping" }
+        payment: { $ref: "#/components/schemas/OrderPayment" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [_id, orderNumber, vendor, buyer, items, pesan, status, shipping, payment]
+
+    VendorMini:
+      type: object
+      additionalProperties: false
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        namaBrand: { type: string, nullable: true }
+        kategoriSpesialisasi: { type: string }
+      required: [_id, namaBrand, kategoriSpesialisasi]
+
+    OrderListItem:
+      type: object
+      additionalProperties: false
+      required: [_id, orderNumber, vendor, items, status, payment, createdAt]
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        orderNumber: { type: string }
+        vendor: { $ref: "#/components/schemas/VendorMini" }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OrderItem" }
+        status: { type: string, enum: [dikirim, selesai, dibatalkan, pengembalian] }
+        payment:
+          type: object
+          additionalProperties: false
+          required: [totalDibayar]
+          properties:
+            totalDibayar: { type: number }
+        createdAt: { type: string, format: date-time }
+
+    OrderListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/OrderListItem" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+
+    VendorForOrder:
+      type: object
+      additionalProperties: false
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        namaBrand: { type: string, nullable: true }
+        namaPerusahaan: { type: string }
+        kategoriSpesialisasi: { type: string }
+        telepon: { type: string }
+        alamatPerusahaan: { type: string }
+      required: [_id, namaBrand, namaPerusahaan, kategoriSpesialisasi, telepon, alamatPerusahaan]
+
+    OrderItemPopulated:
+      type: object
+      additionalProperties: false
+      required: [namaProduk, jumlah, hargaSatuan, subtotal]
+      properties:
+        material:
+          $ref: "#/components/schemas/MaterialRef"
+          nullable: true
+        namaProduk: { type: string }
+        kategoriMaterial: { type: string }
+        subKategoriMaterial: { type: string }
+        jumlah: { type: integer }
+        hargaSatuan: { type: number }
+        subtotal: { type: number }
+
+    OrderPopulated:
+      allOf:
+        - $ref: "#/components/schemas/Order"
+        - type: object
+          properties:
+            vendor: { $ref: "#/components/schemas/VendorForOrder" }
+            items:
+              type: array
+              items: { $ref: "#/components/schemas/OrderItemPopulated" }
+
+    WorkerCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [nama, gender]
+      properties:
+        nama: { type: string, minLength: 1 }
+        email: { type: string, format: email, nullable: true }
+        telepon: { type: string, default: "" }
+        gender: { type: string, enum: [male, female] }
+        tanggalLahir:
+          type: string
+          format: date
+          nullable: true
+        keahlian:
+          type: array
+          items: { type: string }
+          default: []
+        alamat: { type: string, default: "" }
+        photoUrl: { type: string, format: uri, nullable: true }
+
+    WorkerUpdateRequest:
+      allOf:
+        - $ref: "#/components/schemas/WorkerCreateRequest"
+      description: Partial update (all fields optional)
+
+    Worker:
+      type: object
+      additionalProperties: true
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        kodeWorker: { type: string }
+        nama: { type: string }
+        email: { type: string, format: email, nullable: true }
+        telepon: { type: string }
+        gender: { type: string, enum: [male, female] }
+        tanggalLahir: { type: string, format: date-time, nullable: true }
+        keahlian:
+          type: array
+          items: { type: string }
+        alamat: { type: string }
+        photoUrl: { type: string, nullable: true }
+        deletedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [_id, kodeWorker, nama, gender, keahlian, alamat]
+
+    WorkerListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Worker" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+
+    ClockEventRequest:
+      type: object
+      additionalProperties: false
+      required: [lat, lng]
+      properties:
+        lat: { type: number }
+        lng: { type: number }
+
+    AttendanceClockEvent:
+      type: object
+      additionalProperties: false
+      properties:
+        at: { type: string, format: date-time, nullable: true }
+        lat: { type: number, nullable: true }
+        lng: { type: number, nullable: true }
+        withinRadius: { type: boolean, nullable: true }
+
+    Attendance:
+      type: object
+      additionalProperties: true
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        user: { $ref: "#/components/schemas/ObjectId" }
+        date:
+          type: string
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        clockIn: { $ref: "#/components/schemas/AttendanceClockEvent" }
+        clockOut: { $ref: "#/components/schemas/AttendanceClockEvent" }
+        location: { type: string }
+        status: { type: string, enum: [present, absent, leave] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    AttendanceAbsentDefault:
+      type: object
+      additionalProperties: false
+      required: [user, date, clockIn, clockOut, status]
+      properties:
+        user:
+          oneOf:
+            - $ref: "#/components/schemas/ObjectId"
+            - type: string
+              description: May be returned as stringified ObjectId
+        date:
+          type: string
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        clockIn:
+          $ref: "#/components/schemas/AttendanceClockEvent"
+          nullable: true
+        clockOut:
+          $ref: "#/components/schemas/AttendanceClockEvent"
+          nullable: true
+        status: { type: string, enum: [absent] }
+
+    ClockEventResponse:
+      type: object
+      additionalProperties: false
+      required: [withinRadius, attendance]
+      properties:
+        withinRadius: { type: boolean }
+        attendance: { $ref: "#/components/schemas/Attendance" }
+
+    AttendanceListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/Attendance" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+
+    AttendanceCalendarDay:
+      type: object
+      additionalProperties: false
+      required: [date, day, dayLabel, status, clockIn, clockOut]
+      properties:
+        date:
+          type: string
+          pattern: "^\\d{4}-\\d{2}-\\d{2}$"
+        day: { type: integer, minimum: 1, maximum: 31 }
+        dayLabel: { type: string }
+        status: { type: string, enum: [present, absent, leave] }
+        clockIn: { type: string, format: date-time, nullable: true }
+        clockOut: { type: string, format: date-time, nullable: true }
+
+    AttendanceCalendarResponse:
+      type: object
+      additionalProperties: false
+      required: [month, days]
+      properties:
+        month:
+          type: string
+          pattern: "^\\d{4}-\\d{2}$"
+        days:
+          type: array
+          items: { $ref: "#/components/schemas/AttendanceCalendarDay" }
+
+    PayrollComponent:
+      type: object
+      additionalProperties: false
+      required: [name, type, amount]
+      properties:
+        name: { type: string, minLength: 1 }
+        type: { type: string, enum: [earning, deduction] }
+        amount: { type: number, minimum: 0 }
+
+    PayrollCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [user, period, gajiPokok]
+      properties:
+        user: { $ref: "#/components/schemas/ObjectId" }
+        period:
+          type: object
+          additionalProperties: false
+          required: [year, month]
+          properties:
+            year: { type: integer, minimum: 2000 }
+            month: { type: integer, minimum: 1, maximum: 12 }
+        gajiPokok: { type: number, minimum: 0 }
+        components:
+          type: array
+          items: { $ref: "#/components/schemas/PayrollComponent" }
+          default: []
+
+    PayrollUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        gajiPokok: { type: number, minimum: 0 }
+        components:
+          type: array
+          items: { $ref: "#/components/schemas/PayrollComponent" }
+
+    Payroll:
+      type: object
+      additionalProperties: true
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        user: { $ref: "#/components/schemas/ObjectId" }
+        period:
+          type: object
+          additionalProperties: false
+          properties:
+            year: { type: integer }
+            month: { type: integer }
+          required: [year, month]
+        gajiPokok: { type: number }
+        components:
+          type: array
+          items: { $ref: "#/components/schemas/PayrollComponent" }
+        totalEarning: { type: number }
+        totalDeduction: { type: number }
+        netSalary: { type: number }
+        status: { type: string, enum: [draft, paid] }
+        paidAt: { type: string, format: date-time, nullable: true }
+        paidBy: { $ref: "#/components/schemas/ObjectId", nullable: true }
+        deletedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    UserMini:
+      type: object
+      additionalProperties: false
+      required: [_id, nama, email]
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        nama: { type: string }
+        email: { type: string, format: email }
+
+    PayrollPopulated:
+      allOf:
+        - $ref: "#/components/schemas/Payroll"
+        - type: object
+          properties:
+            user: { $ref: "#/components/schemas/UserMini" }
+            paidBy:
+              $ref: "#/components/schemas/UserMini"
+              nullable: true
+
+    PayrollListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/PayrollPopulated" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+
+    ActivityLog:
+      type: object
+      additionalProperties: true
+      properties:
+        _id: { $ref: "#/components/schemas/ObjectId" }
+        actor:
+          allOf:
+            - $ref: "#/components/schemas/UserMini"
+        action: { type: string }
+        resource: { type: string, nullable: true }
+        resourceId: { $ref: "#/components/schemas/ObjectId", nullable: true }
+        metadata:
+          type: object
+          additionalProperties: true
+          nullable: true
+        ip: { type: string, nullable: true }
+        userAgent: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    ActivityLogListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/ActivityLog" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+
