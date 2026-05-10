@@ -67,11 +67,16 @@ export function startScheduleWorker(whatsappClient) {
   scheduleWorker = new Worker(
     constants.QUEUES.SCHEDULED_WHATSAPP,
     async (job) => {
+      // Match both imported constants and string literals so an outdated workspace
+      // copy of @smart-constructor/contracts (undefined JOB_SEND_WHATSAPP_IMMEDIATE)
+      // still routes jobs correctly after `pnpm install` / image rebuild.
       switch (job.name) {
         case JOB_SEND_WHATSAPP:
+        case "send-whatsapp":
           await processSchedule(job);
           break;
         case JOB_SEND_WHATSAPP_IMMEDIATE:
+        case "send-whatsapp-immediate":
           await processImmediateSend(job);
           break;
         default:

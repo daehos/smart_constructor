@@ -883,7 +883,7 @@
     },
     {
       "name": "WhatsApp",
-      "description": "Admin endpoints for WhatsApp connection status and QR code scanning.",
+      "description": "JWT-protected endpoints: connection status, QR pairing, and **immediate** outbound text (queued on BullMQ, same worker as schedules). `to` must be E.164 digits **without** a leading `+` (e.g. 6281234567890).",
       "item": [
         {
           "name": "Get connection status",
@@ -901,6 +901,19 @@
             "header": [],
             "url": "{{baseUrl}}/whatsapp/qr",
             "description": "Returns the latest QR code string from Redis (TTL ~60s). Null if already connected or not yet generated. Scan with the WhatsApp bot number to pair the session."
+          }
+        },
+        {
+          "name": "Send message (immediate)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"to\": \"6281234567890\",\n  \"body\": \"Halo dari Smart Constructor (Postman).\"\n}"
+            },
+            "url": "{{baseUrl}}/whatsapp/send",
+            "description": "Queues `send-whatsapp-immediate` on the scheduled-whatsapp queue (high priority). **202** when accepted — delivery is async; the WhatsApp worker must be connected. Same validation as schedules for `to` / `body` length."
           }
         }
       ]
