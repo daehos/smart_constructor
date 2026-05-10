@@ -1,0 +1,24 @@
+{
+  "name": "@smart-constructor/whatsapp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.27.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/worker.js",
+    "dev": "node --watch src/worker.js"
+  },
+  "dependencies": {
+    "@smart-constructor/contracts": "workspace:*",
+    "@whiskeysockets/baileys": "^6.7.18",
+    "bullmq": "^5.76.6",
+    "dotenv": "^17.4.2",
+    "ioredis": "^5.10.1",
+    "mongoose": "^9.6.1",
+    "qrcode-terminal": "^0.12.0",
+    "zod": "^4.4.3"
+  }
+}

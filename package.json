@@ -1,35 +1,16 @@
 {
-  "name": "smart_constructor",
+  "name": "smart-constructor-workspace",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.27.0",
-  "main": "main.js",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "start": "node main.js",
-    "dev": "nodemon main.js",
-    "seed": "node seeders/index.js",
-    "seed:reset": "node seeders/index.js --reset"
-  },
-  "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "bullmq": "^5.76.6",
-    "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "ioredis": "^5.10.1",
-    "jsonwebtoken": "^9.0.3",
-    "mongodb": "^7.2.0",
-    "mongoose": "^9.6.1",
-    "nodemailer": "^8.0.7",
-    "pg": "^8.20.0",
-    "redis": "^5.12.1",
-    "zod": "^4.4.3"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.14"
+    "dev": "pnpm --filter @smart-constructor/api run dev",
+    "start": "pnpm --filter @smart-constructor/api run start",
+    "seed": "pnpm --filter @smart-constructor/api run seed",
+    "seed:reset": "pnpm --filter @smart-constructor/api run seed:reset"
   }
 }

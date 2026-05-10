@@ -1,0 +1,11 @@
+# Used by services-ocr/Dockerfile only.
+# Base image paddlepaddle/paddle already includes paddlepaddle + compatible system libs.
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+paddleocr==2.9.1
+# OpenCV: let paddleocr / base image resolve cv2 — do not force headless here
+# (see Dockerfile; mixing uninstall + headless on paddlepaddle/paddle broke cv2).
+numpy==1.26.4
+httpx==0.28.1
+Pillow==11.2.1
+python-multipart==0.0.20

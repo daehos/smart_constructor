@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     "name": "Smart Constructor API",
-    "description": "Import this file into Postman. Collection variables: `host`, `baseUrl` (default http://localhost:8080/api/v1), `accessToken`, ids. After **Auth → Register**, set **otp_code** to the OTP from email, then run **Verify OTP** — accessToken saves automatically. Protected routes use Bearer `{{accessToken}}`.",
+    "description": "Import this collection, then import an **environment** from the same `postman/` folder: **Smart_Constructor_Dev** (API on :8080, e.g. `make docker-dev-up`) or **Smart_Constructor_Local** (default :3000, e.g. `make dev` with `PORT=3000`). In Postman, select the environment in the top-right; environment values override the collection’s defaults. Collection variables: `host`, `baseUrl`, `accessToken`, ids. After **Auth → Register**, set **otp_code** to the OTP from email, then run **Verify OTP** — accessToken saves automatically. Protected routes use Bearer `{{accessToken}}`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -20,7 +20,9 @@
     { "key": "material_id", "value": "" },
     { "key": "order_id", "value": "" },
     { "key": "worker_id", "value": "" },
-    { "key": "payroll_id", "value": "" }
+    { "key": "payroll_id", "value": "" },
+    { "key": "receipt_id", "value": "" },
+    { "key": "schedule_id", "value": "" }
   ],
   "item": [
     {
@@ -669,6 +671,205 @@
             "header": [],
             "url": "{{baseUrl}}/activity-logs/me?page=1&limit=20",
             "description": "Activity logs for the currently authenticated user."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Receipts (OCR)",
+      "description": "Upload a shop receipt image, poll for OCR result, then confirm into a draft Order. Max upload 5 MB (JPEG/PNG/WebP).",
+      "item": [
+        {
+          "name": "Upload receipt",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.data && json.data._id) {",
+                  "  pm.collectionVariables.set('receipt_id', json.data._id);",
+                  "  console.log('receipt_id set to', json.data._id);",
+                  "}",
+                  "pm.test('Status is 202', function () { pm.response.to.have.status(202); });"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "receipt",
+                  "type": "file",
+                  "src": "",
+                  "description": "Select a receipt image (JPEG/PNG/WebP, max 5 MB)"
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/receipts",
+            "description": "Upload a receipt image. Returns 202 with receiptId immediately. The OCR job runs asynchronously — poll GET /receipts/:id until status is 'done' or 'failed'."
+          }
+        },
+        {
+          "name": "List my receipts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/receipts?page=1&limit=20",
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "status", "value": "done", "disabled": true, "description": "Filter by status: queued | processing | done | failed" }
+              ]
+            },
+            "description": "Paginated list of the authenticated user's receipts. rawOcr is excluded from list view."
+          }
+        },
+        {
+          "name": "Get receipt by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/receipts/{{receipt_id}}",
+            "description": "Returns full receipt document including rawOcr and parsed fields. Poll this endpoint after upload until status == 'done'."
+          }
+        },
+        {
+          "name": "Confirm receipt → create Order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vendor\": \"{{vendor_id}}\",\n  \"pesan\": \"Order dari struk belanja\",\n  \"items\": [\n    {\n      \"name\": \"AQUA 600ML\",\n      \"qty\": 1,\n      \"price\": 4000\n    },\n    {\n      \"name\": \"ROTI TAWAR\",\n      \"qty\": 2,\n      \"price\": 6000\n    }\n  ]\n}",
+              "description": "items is optional — if omitted, uses items parsed from the receipt. Requires receipt status == 'done' and a valid vendor_id."
+            },
+            "url": "{{baseUrl}}/receipts/{{receipt_id}}/confirm",
+            "description": "Creates a draft Order from the OCR-parsed receipt. Returns { receipt, order }. Sets receipt.linkedOrder. Can only be confirmed once."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Schedules (WhatsApp)",
+      "description": "User-defined WhatsApp message scheduling. `kind=oneshot` fires once at `scheduledAt`; `kind=recurring` repeats on a 5-part cron. Phone numbers must be E.164 digits without a leading +, e.g. 6281234567890.",
+      "item": [
+        {
+          "name": "Create one-shot schedule",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.success && res.data && res.data._id) {",
+                  "  pm.collectionVariables.set('schedule_id', res.data._id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"oneshot\",\n  \"to\": \"6281234567890\",\n  \"body\": \"Halo! Pesanan Anda sudah siap diambil.\",\n  \"scheduledAt\": \"2026-06-01T09:00:00+07:00\",\n  \"timezone\": \"Asia/Jakarta\"\n}"
+            },
+            "url": "{{baseUrl}}/schedules",
+            "description": "Schedule a single WhatsApp message at a specific date/time. `scheduledAt` must be in the future. The schedule_id variable is saved for subsequent requests."
+          }
+        },
+        {
+          "name": "Create recurring schedule",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"kind\": \"recurring\",\n  \"to\": \"6281234567890\",\n  \"body\": \"Laporan harian: semua sistem normal.\",\n  \"cron\": \"0 8 * * *\",\n  \"timezone\": \"Asia/Jakarta\"\n}"
+            },
+            "url": "{{baseUrl}}/schedules",
+            "description": "Schedule a recurring WhatsApp message using a standard 5-part cron expression (min hour dom mon dow). The message fires every day at 08:00 WIB in this example."
+          }
+        },
+        {
+          "name": "List schedules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/schedules?page=1&limit=20",
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "status", "value": "pending", "disabled": true, "description": "Filter: pending | active | sent | cancelled | failed" },
+                { "key": "kind", "value": "oneshot", "disabled": true, "description": "Filter: oneshot | recurring" }
+              ]
+            },
+            "description": "Paginated list of the authenticated user's schedules."
+          }
+        },
+        {
+          "name": "Get schedule by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/schedules/{{schedule_id}}",
+            "description": "Returns the full schedule document including BullMQ job references and last send info."
+          }
+        },
+        {
+          "name": "Update schedule (reschedule)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduledAt\": \"2026-06-02T10:00:00+07:00\"\n}"
+            },
+            "url": "{{baseUrl}}/schedules/{{schedule_id}}",
+            "description": "Update message body, timezone, scheduledAt (oneshot), or cron (recurring). Changing scheduledAt/cron removes the old BullMQ job and creates a new one. Cannot update a cancelled or already-sent schedule."
+          }
+        },
+        {
+          "name": "Cancel schedule",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/schedules/{{schedule_id}}",
+            "description": "Cancels the schedule. Removes the pending BullMQ job (if still queued). Sets status to 'cancelled'."
+          }
+        }
+      ]
+    },
+    {
+      "name": "WhatsApp",
+      "description": "Admin endpoints for WhatsApp connection status and QR code scanning.",
+      "item": [
+        {
+          "name": "Get connection status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/whatsapp/status",
+            "description": "Returns { connected: true/false } by reading the Redis flag written by the Baileys worker."
+          }
+        },
+        {
+          "name": "Get QR code",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/whatsapp/qr",
+            "description": "Returns the latest QR code string from Redis (TTL ~60s). Null if already connected or not yet generated. Scan with the WhatsApp bot number to pair the session."
           }
         }
       ]

@@ -1,62 +1,170 @@
-# Full stack: API + MongoDB + Redis (self-hosted).
-# Requires .env with at least JWT_SECRET, API_VERSION, REDIS_PASSWORD, and any overrides.
-# Run: docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# Full stack: API + MongoDB + Redis + MinIO + OCR + WhatsApp (production).
+#
+# Requires an external Docker network (Compose does not create it):
+#   docker network create smart_constructor_prod
+# Or: make docker-prod-network
+#
+# Requires api/.env with at least JWT_SECRET, API_VERSION, REDIS_PASSWORD, MONGO_ROOT_USER,
+# MONGO_ROOT_PASSWORD, MINIO_ROOT_USER, MINIO_ROOT_PASSWORD, and any overrides.
+# Run: docker compose -f docker-compose.prod.yml --env-file api/.env up -d --build
 #
 # Host port defaults to 8080 -> container PORT 3000. Set HOST_PORT to change the host side.
 
 name: smart-constructor-prod
 
+networks:
+  sc:
+    external: true
+    name: ${SMART_CONSTRUCTOR_DOCKER_NETWORK:-smart_constructor_prod}
+
 services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: api/Dockerfile
     restart: unless-stopped
+    networks:
+      - sc
     ports:
       - "${HOST_PORT:-8080}:3000"
     env_file:
-      - .env
+      - api/.env
     environment:
       NODE_ENV: production
       PORT: "3000"
-      MONGODB_URI: mongodb://mongo:27017/smart_constructor
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:?Set MONGO_ROOT_USER in api/.env}:${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in api/.env}@mongo:27017/smart_constructor?authSource=admin
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_USERNAME: default
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in api/.env}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in api/.env}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in api/.env}
+      MINIO_BUCKET_RECEIPTS: receipts
+      MINIO_USE_SSL: "false"
+      OCR_SERVICE_URL: http://ocr:8100
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      ocr:
+        condition: service_healthy
+
+  whatsapp:
+    build:
+      context: .
+      dockerfile: whatsapp-service/Dockerfile
+    restart: unless-stopped
+    networks:
+      - sc
+    env_file:
+      - api/.env
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:?Set MONGO_ROOT_USER in api/.env}:${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in api/.env}@mongo:27017/smart_constructor?authSource=admin
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_USERNAME: default
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in api/.env}
+      WHATSAPP_AUTH_DIR: /app/whatsapp-service/wa-auth
+    volumes:
+      - wa_auth_prod:/app/whatsapp-service/wa-auth
     depends_on:
       mongo:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  mongo:
-    image: mongo:7
+  ocr:
+    build:
+      context: ./ocr-service
+      dockerfile: Dockerfile
     restart: unless-stopped
-    volumes:
-      - mongo_prod_data:/data/db
+    networks:
+      - sc
     environment:
-      MONGO_INITDB_DATABASE: smart_constructor
+      FETCH_TIMEOUT_SECONDS: "15"
+    mem_limit: "1500m"
+    depends_on:
+      minio:
+        condition: service_healthy
     healthcheck:
-      test:
-        [
-          "CMD",
-          "mongosh",
-          "--quiet",
-          "mongodb://127.0.0.1:27017/smart_constructor",
-          "--eval",
-          "db.runCommand({ ping: 1 }).ok",
-        ]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8100/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
 
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    networks:
+      - sc
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in api/.env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in api/.env}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_prod_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  minio-init:
+    image: minio/mc:latest
+    networks:
+      - sc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD};
+        mc mb --ignore-existing local/receipts;
+        mc anonymous set none local/receipts;
+        echo 'MinIO bucket ready';
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in api/.env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in api/.env}
+    restart: "no"
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    networks:
+      - sc
+    volumes:
+      - mongo_prod_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:?Set MONGO_ROOT_USER in api/.env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in api/.env}
+      MONGO_INITDB_DATABASE: smart_constructor
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet -u \"${MONGO_ROOT_USER}\" -p \"${MONGO_ROOT_PASSWORD}\" --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 })' || exit 1",
+        ]
+      interval: 10s
+      timeout: 30s
+      retries: 8
+      start_period: 90s
+
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    networks:
+      - sc
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in api/.env}
     command:
       ["sh", "-c", 'exec redis-server --requirepass "$$REDIS_PASSWORD"']
     healthcheck:
@@ -71,3 +179,5 @@ services:
 
 volumes:
   mongo_prod_data:
+  minio_prod_data:
+  wa_auth_prod:

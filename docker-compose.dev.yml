@@ -1,45 +1,56 @@
 # Dev stack
 #
-# Mongo + Redis only (default):
-#   docker compose -f docker-compose.dev.yml up -d
+# Requires an external Docker network (Compose does not create it):
+#   docker network create smart_constructor_dev
+# Or: make docker-dev-network
+#
+# Full stack (API + Mongo + Redis + MinIO + OCR + WhatsApp), API on host port 8080:
 #   make docker-dev-up
-#
-# API in Docker (nodemon, bind-mounted source) + Mongo + Redis:
 #   docker compose -f docker-compose.dev.yml --profile api up -d --build
-#   make docker-dev-api-up
 #
-# Host API with Docker deps: use .env with localhost URIs, then make dev
+# Infra only (no API) — run the API on the host with `make dev`:
+#   make docker-dev-infra
+#   docker compose -f docker-compose.dev.yml up -d mongo redis minio minio-init ocr
+#
+# The `api` and `whatsapp` services use Compose profile `api`; `make docker-dev-up` passes --profile api.
 
 name: smart-constructor-dev
+
+networks:
+  sc:
+    external: true
+    name: ${SMART_CONSTRUCTOR_DOCKER_NETWORK:-smart_constructor_dev}
 
 services:
   mongo:
     image: mongo:7
     restart: unless-stopped
+    networks:
+      - sc
     ports:
       - "27017:27017"
     volumes:
       - mongo_dev_data:/data/db
     environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-mongo_admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-mongo_dev_secret_change_me}
       MONGO_INITDB_DATABASE: smart_constructor
     healthcheck:
       test:
         [
-          "CMD",
-          "mongosh",
-          "--quiet",
-          "mongodb://127.0.0.1:27017/smart_constructor",
-          "--eval",
-          "db.runCommand({ ping: 1 }).ok",
+          "CMD-SHELL",
+          "mongosh --quiet -u \"${MONGO_ROOT_USER:-mongo_admin}\" -p \"${MONGO_ROOT_PASSWORD:-mongo_dev_secret_change_me}\" --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 })' || exit 1",
         ]
       interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      timeout: 30s
+      retries: 8
+      start_period: 90s
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    networks:
+      - sc
     ports:
       - "6379:6379"
     command: ["redis-server", "--requirepass", "dev_redis_secret"]
@@ -49,27 +60,130 @@ services:
       timeout: 3s
       retries: 5
 
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    networks:
+      - sc
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio_dev_user}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio_dev_secret}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_dev_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  minio-init:
+    image: minio/mc:latest
+    networks:
+      - sc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-minio_dev_user} $${MINIO_ROOT_PASSWORD:-minio_dev_secret};
+        mc mb --ignore-existing local/receipts;
+        mc anonymous set none local/receipts;
+        echo 'MinIO bucket ready';
+      "
+    restart: "no"
+
+  ocr:
+    build:
+      context: ./ocr-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - sc
+    ports:
+      - "8100:8100"
+    environment:
+      FETCH_TIMEOUT_SECONDS: "15"
+    mem_limit: "1500m"
+    depends_on:
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8100/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      # /health is instant; Paddle loads on first POST /ocr (not during startup).
+      start_period: 30s
+
   api:
     profiles: ["api"]
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: api/Dockerfile.dev
     restart: unless-stopped
+    networks:
+      - sc
     ports:
       - "${DEV_HOST_PORT:-8080}:8080"
     env_file:
-      - .env
+      - api/.env
     environment:
       NODE_ENV: development
       PORT: "8080"
-      MONGODB_URI: mongodb://mongo:27017/smart_constructor
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:-mongo_admin}:${MONGO_ROOT_PASSWORD:-mongo_dev_secret_change_me}@mongo:27017/smart_constructor?authSource=admin
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       REDIS_USERNAME: default
       REDIS_PASSWORD: dev_redis_secret
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minio_dev_user}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minio_dev_secret}
+      MINIO_BUCKET_RECEIPTS: receipts
+      MINIO_USE_SSL: "false"
+      OCR_SERVICE_URL: http://ocr:8100
     volumes:
       - .:/app
-      - dev_api_node_modules:/app/node_modules
+      - dev_api_node_modules:/app/api/node_modules
+      - dev_root_node_modules:/app/node_modules
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      ocr:
+        condition: service_healthy
+
+  whatsapp:
+    profiles: ["api"]
+    build:
+      context: .
+      dockerfile: whatsapp-service/Dockerfile.dev
+    restart: unless-stopped
+    networks:
+      - sc
+    env_file:
+      - api/.env
+    environment:
+      NODE_ENV: development
+      MONGODB_URI: mongodb://${MONGO_ROOT_USER:-mongo_admin}:${MONGO_ROOT_PASSWORD:-mongo_dev_secret_change_me}@mongo:27017/smart_constructor?authSource=admin
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_USERNAME: default
+      REDIS_PASSWORD: dev_redis_secret
+      WHATSAPP_AUTH_DIR: /app/whatsapp-service/wa-auth
+    volumes:
+      - .:/app
+      - dev_whatsapp_node_modules:/app/whatsapp-service/node_modules
+      - dev_root_node_modules:/app/node_modules
+      - wa_auth_dev:/app/whatsapp-service/wa-auth
     depends_on:
       mongo:
         condition: service_healthy
@@ -79,3 +193,7 @@ services:
 volumes:
   mongo_dev_data:
   dev_api_node_modules:
+  dev_whatsapp_node_modules:
+  dev_root_node_modules:
+  minio_dev_data:
+  wa_auth_dev:

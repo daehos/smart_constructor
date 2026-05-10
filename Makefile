@@ -1,12 +1,15 @@
 SHELL := /bin/bash
 export DOCKER_BUILDKIT ?= 1
 
-# Prefer pnpm when installed; otherwise npm (see README).
+# Prefer pnpm when installed; otherwise npm.
 PKG_MANAGER := $(shell command -v pnpm >/dev/null 2>&1 && echo pnpm || echo npm)
 
 .PHONY: help install dev start seed seed-reset \
-	docker-dev-up docker-dev-down docker-dev-logs \
+	docker-dev-network docker-prod-network \
+	docker-dev-up docker-dev-infra docker-dev-down docker-dev-logs \
 	docker-dev-api-up docker-dev-api-logs \
+	docker-dev-ocr-build docker-dev-ocr-logs \
+	docker-dev-wa-logs \
 	docker-prod-up docker-prod-down docker-prod-logs docker-build
 
 help:
@@ -14,43 +17,57 @@ help:
 	@echo ""
 	@echo "Package manager: $(PKG_MANAGER) (pnpm if available, else npm)"
 	@echo ""
-	@echo "  make install          Install dependencies"
-	@echo "  make dev              Run API with nodemon"
-	@echo "  make start            Run API (production mode, NODE_ENV from .env)"
+	@echo "  make install          Install all workspace dependencies"
+	@echo "  make dev              Run API locally with nodemon (from api/)"
+	@echo "  make start            Run API (production mode, NODE_ENV from api/.env)"
 	@echo "  make seed             Run database seeders"
 	@echo "  make seed-reset       Seed with --reset"
 	@echo ""
-	@echo "  make docker-dev-up       Start MongoDB + Redis only"
-	@echo "  make docker-dev-api-up   Build & run API in Docker (nodemon) + Mongo + Redis"
-	@echo "  make docker-dev-down     Stop dev stack (including API if it was running)"
-	@echo "  make docker-dev-logs     Follow Mongo + Redis logs"
-	@echo "  make docker-dev-api-logs Follow API container logs"
-	@echo ""
-	@echo "  make docker-build     Build API image (smart-constructor:local)"
-	@echo "  make docker-prod-up   Build and run full prod stack (needs .env)"
-	@echo "  make docker-prod-down Stop prod stack"
-	@echo "  make docker-prod-logs Follow prod API logs"
+	@echo "  make docker-dev-network     Ensure external Docker network exists (smart_constructor_dev)"
+	@echo "  make docker-prod-network    Ensure external Docker network exists (smart_constructor_prod)"
+	@echo "  make docker-dev-up          Full dev stack in Docker (API on :8080 + Mongo + Redis + MinIO + OCR + WhatsApp)"
+	@echo "  make docker-dev-infra       Deps only (no API) — then run API on host: make dev"
+	@echo "  make docker-dev-api-up      Alias for docker-dev-up"
+	@echo "  make docker-dev-down        Stop dev stack (including API/WhatsApp)"
+	@echo "  make docker-dev-logs        Follow Mongo + Redis logs"
+	@echo "  make docker-dev-api-logs    Follow API container logs"
+	@echo "  make docker-dev-ocr-build   Rebuild OCR Python image"
+	@echo "  make docker-dev-ocr-logs    Follow OCR service logs"
+	@echo "  make docker-dev-wa-logs     Follow WhatsApp worker logs (incl. QR code on first start)"
+	@echo "  make docker-build           Build API image (smart-constructor-api:local)"
+	@echo "  make docker-prod-up         Build and run full prod stack (needs api/.env)"
+	@echo "  make docker-prod-down       Stop prod stack"
+	@echo "  make docker-prod-logs       Follow prod API logs"
 
 install:
 	$(PKG_MANAGER) install
 
 dev:
-	$(PKG_MANAGER) run dev
+	cd api && $(PKG_MANAGER) run dev
 
 start:
-	$(PKG_MANAGER) run start
+	cd api && $(PKG_MANAGER) run start
 
 seed:
-	$(PKG_MANAGER) run seed
+	cd api && $(PKG_MANAGER) run seed
 
 seed-reset:
-	$(PKG_MANAGER) run seed:reset
+	cd api && $(PKG_MANAGER) run seed:reset
 
-docker-dev-up:
-	docker compose -f docker-compose.dev.yml up -d mongo redis
+# Compose uses external: true — these targets create the network if missing (Compose will not).
+docker-dev-network:
+	@docker network inspect smart_constructor_dev >/dev/null 2>&1 || docker network create smart_constructor_dev
 
-docker-dev-api-up:
+docker-prod-network:
+	@docker network inspect smart_constructor_prod >/dev/null 2>&1 || docker network create smart_constructor_prod
+
+docker-dev-up: docker-dev-network
 	docker compose -f docker-compose.dev.yml --profile api up -d --build
+
+docker-dev-infra: docker-dev-network
+	docker compose -f docker-compose.dev.yml up -d mongo redis minio minio-init ocr
+
+docker-dev-api-up: docker-dev-up
 
 docker-dev-down:
 	docker compose -f docker-compose.dev.yml --profile api down
@@ -61,11 +78,20 @@ docker-dev-logs:
 docker-dev-api-logs:
 	docker compose -f docker-compose.dev.yml logs -f api
 
-docker-build:
-	docker build -t smart-constructor:local .
+docker-dev-ocr-build:
+	docker compose -f docker-compose.dev.yml build ocr
 
-docker-prod-up:
-	docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+docker-dev-ocr-logs:
+	docker compose -f docker-compose.dev.yml logs -f ocr
+
+docker-dev-wa-logs:
+	docker compose -f docker-compose.dev.yml logs -f whatsapp
+
+docker-build:
+	docker build -f api/Dockerfile -t smart-constructor-api:local .
+
+docker-prod-up: docker-prod-network
+	docker compose -f docker-compose.prod.yml --env-file api/.env up -d --build
 
 docker-prod-down:
 	docker compose -f docker-compose.prod.yml down
