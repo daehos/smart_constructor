@@ -44,6 +44,9 @@ const envSchema = z.object({
   // Jittered pause (ms) between successive sends to appear more human-like.
   WHATSAPP_SEND_DELAY_MS: z.coerce.number().int().min(0).default(1500),
   WHATSAPP_QR_TTL_SECONDS: z.coerce.number().int().positive().default(60),
+
+  /** IANA zone for attendance "today" and calendar weekday math (e.g. Asia/Jakarta). */
+  ATTENDANCE_TIME_ZONE: z.string().min(1).default("Asia/Jakarta"),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -104,5 +107,9 @@ export const config = Object.freeze({
     defaultTz: parsed.data.WHATSAPP_DEFAULT_TZ,
     sendDelayMs: parsed.data.WHATSAPP_SEND_DELAY_MS,
     qrTtlSeconds: parsed.data.WHATSAPP_QR_TTL_SECONDS,
+  },
+
+  attendance: {
+    timeZone: parsed.data.ATTENDANCE_TIME_ZONE,
   },
 });

@@ -18,3 +18,11 @@ export const calendarValidation = z.object({
     .regex(/^\d{4}-\d{2}$/, "Format bulan harus YYYY-MM")
     .optional(),
 });
+
+/** Optional YYYY-MM-DD; defaults to "today" in attendance TZ. Used to pick which week to show. */
+export const weekSummaryValidation = z.object({
+  anchor: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Format tanggal harus YYYY-MM-DD")
+    .optional(),
+});

@@ -513,6 +513,28 @@
       "name": "Attendance",
       "item": [
         {
+          "name": "Get site (geofence for map)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/attendance/site",
+            "description": "Center, radius, optional area label — for drawing the site circle before clock-in."
+          }
+        },
+        {
+          "name": "Check location (no DB write)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lat\": -6.2615,\n  \"lng\": 106.9335\n}"
+            },
+            "url": "{{baseUrl}}/attendance/check-location",
+            "description": "Returns withinRadius + distanceMeters + site. Same rules as clock-in without persisting."
+          }
+        },
+        {
           "name": "Clock In",
           "request": {
             "method": "POST",
@@ -556,12 +578,21 @@
           }
         },
         {
+          "name": "Week summary (Presensi strip)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/attendance/me/week",
+            "description": "Mon–Sun strip for the week containing today (attendance TZ). Optional query: anchor=YYYY-MM-DD to pick another week."
+          }
+        },
+        {
           "name": "Month calendar",
           "request": {
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/attendance/me/calendar?month=2025-05",
-            "description": "Returns all days in the month with status, clockIn, clockOut."
+            "description": "Returns `days`, `weeks` (Mon–Sun rows, null padding), status, clockIn, clockOut ISO times, and timeZone."
           }
         }
       ]
