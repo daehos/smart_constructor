@@ -140,7 +140,7 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/vendors?page=1&limit=20&q=&kategoriSpesialisasi=",
-            "description": "Search and filter vendors. Leave q empty for all."
+            "description": "Search and filter vendors. Leave q empty for all. Response includes telepon."
           }
         },
         {
