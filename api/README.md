@@ -1,6 +1,6 @@
 # api — Smart Constructor API
 
-Express + MongoDB (Mongoose) + Redis (BullMQ) + MinIO (image storage) + PaddleOCR (receipt OCR via HTTP) + Baileys (WhatsApp scheduling via BullMQ) backend.
+Express + MongoDB (Mongoose) + Redis (BullMQ) + MinIO (image storage) + Gemini API (receipt OCR) + Baileys (WhatsApp scheduling via BullMQ) backend.
 
 Routes are mounted under `/api/<API_VERSION>` (e.g. `/api/v1`).
 
@@ -34,8 +34,8 @@ cp api/.env.example api/.env
 | `MINIO_ENDPOINT`, `MINIO_PORT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` | — | MinIO / S3 connection |
 | `MINIO_BUCKET_RECEIPTS` | `receipts` | Bucket for receipt images |
 | `MINIO_USE_SSL` | `false` | Enable TLS |
-| `OCR_SERVICE_URL` | `http://127.0.0.1:8100` | URL of the OCR service |
-| `OCR_HTTP_TIMEOUT_MS` | `180000` | Timeout for OCR requests (first call downloads models) |
+| `GEMINI_API_KEY` | — | Gemini API key |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model name |
 | `RECEIPT_MAX_UPLOAD_BYTES` | `5242880` | Max receipt image size (5 MB) |
 | `WHATSAPP_AUTH_DIR` | `./wa-auth` | Baileys session directory |
 | `WHATSAPP_DEFAULT_TZ` | `Asia/Jakarta` | Default timezone for schedules |
@@ -47,7 +47,7 @@ cp api/.env.example api/.env
 ```bash
 # From repo root
 make install
-make docker-dev-infra   # Starts Mongo, Redis, MinIO, OCR in Docker
+make docker-dev-infra   # Starts Mongo, Redis, MinIO in Docker
 make dev                # Runs api with nodemon
 ```
 

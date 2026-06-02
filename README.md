@@ -7,7 +7,6 @@ pnpm workspace containing three sibling services and a shared contracts package.
 ```
 repo-root/
   api/                    Express API (receipts, schedules, auth)
-  ocr-service/            FastAPI + PaddleOCR receipt OCR service
   whatsapp-service/       Baileys WhatsApp worker (BullMQ consumer)
   packages/
     contracts/            Shared queue constants + mongoose schema factory
@@ -22,7 +21,6 @@ repo-root/
 | Service | Language | README |
 |---|---|---|
 | `api` | Node.js / Express | [api/README.md](api/README.md) |
-| `ocr-service` | Python / FastAPI | [ocr-service/README.md](ocr-service/README.md) |
 | `whatsapp-service` | Node.js / Baileys | [whatsapp-service/README.md](whatsapp-service/README.md) |
 | `packages/contracts` | Node.js | [packages/contracts/README.md](packages/contracts/README.md) |
 
@@ -43,7 +41,7 @@ Override the name with `SMART_CONSTRUCTOR_DOCKER_NETWORK` in your shell or `.env
 # Copy environment file and fill in secrets
 cp api/.env.example api/.env
 
-# Start full stack (API + OCR + WhatsApp + infra)
+# Start full stack (API + WhatsApp + infra)
 make docker-dev-up
 
 # Tail WhatsApp worker logs (scan QR on first run)
@@ -59,7 +57,7 @@ make install   # or: pnpm install
 # Copy and configure API env
 cp api/.env.example api/.env
 
-# Start infra (Mongo, Redis, MinIO, OCR) in Docker
+# Start infra (Mongo, Redis, MinIO) in Docker
 make docker-dev-infra
 
 # Run API locally
@@ -78,7 +76,6 @@ make docker-dev-infra   Infra only (no API/WhatsApp)
 make docker-dev-down    Stop dev stack
 make docker-dev-api-logs   API container logs
 make docker-dev-wa-logs    WhatsApp worker logs (+ QR)
-make docker-dev-ocr-logs   OCR service logs
 make docker-prod-up     Build and run production stack
 ```
 
@@ -92,4 +89,4 @@ MongoDB, Redis, JWT, etc.). Copy and edit before first run:
 cp api/.env.example api/.env
 ```
 
-The `ocr-service` only needs `FETCH_TIMEOUT_SECONDS`; see [ocr-service/.env.example](ocr-service/.env.example).
+Receipt OCR uses the Gemini API; configure `GEMINI_API_KEY` in `api/.env`.

@@ -708,7 +708,7 @@
     },
     {
       "name": "Receipts (OCR)",
-      "description": "Upload a shop receipt image, poll for OCR result, then confirm into a draft Order. Max upload 5 MB (JPEG/PNG/WebP).",
+      "description": "Upload a shop receipt file (image or PDF), poll for OCR result, then confirm into a draft Order. Max upload 5 MB (JPEG/PNG/WebP/PDF).",
       "item": [
         {
           "name": "Upload receipt",
@@ -738,12 +738,12 @@
                   "key": "receipt",
                   "type": "file",
                   "src": "",
-                  "description": "Select a receipt image (JPEG/PNG/WebP, max 5 MB)"
+                  "description": "Select a receipt file (JPEG/PNG/WebP/PDF, max 5 MB)"
                 }
               ]
             },
             "url": "{{baseUrl}}/receipts",
-            "description": "Upload a receipt image. Returns 202 with receiptId immediately. The OCR job runs asynchronously — poll GET /receipts/:id until status is 'done' or 'failed'."
+            "description": "Upload a receipt file. Returns 202 with receiptId immediately. The OCR job runs asynchronously — poll GET /receipts/:id until status is 'done' or 'failed'."
           }
         },
         {
@@ -759,7 +759,7 @@
                 { "key": "status", "value": "done", "disabled": true, "description": "Filter by status: queued | processing | done | failed" }
               ]
             },
-            "description": "Paginated list of the authenticated user's receipts. rawOcr is excluded from list view."
+            "description": "Paginated list of the authenticated user's receipts."
           }
         },
         {
@@ -768,7 +768,7 @@
             "method": "GET",
             "header": [],
             "url": "{{baseUrl}}/receipts/{{receipt_id}}",
-            "description": "Returns full receipt document including rawOcr and parsed fields. Poll this endpoint after upload until status == 'done'."
+            "description": "Returns full receipt document including parsed fields. Poll this endpoint after upload until status == 'done'."
           }
         },
         {

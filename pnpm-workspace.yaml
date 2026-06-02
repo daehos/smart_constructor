@@ -2,3 +2,9 @@ packages:
   - "api"
   - "whatsapp-service"
   - "packages/*"
+
+# pnpm v10.26+ security: allow dependency build scripts explicitly.
+allowBuilds:
+  "@google/genai": true
+  msgpackr-extract: true
+  protobufjs: true

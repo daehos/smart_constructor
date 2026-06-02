@@ -5,6 +5,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 FROM base AS prod-deps
+RUN apk add --no-cache git
 RUN corepack enable && corepack prepare pnpm@10.27.0 --activate
 
 # Copy workspace root files
