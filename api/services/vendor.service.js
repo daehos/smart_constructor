@@ -61,7 +61,9 @@ export default class VendorService {
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
       Vendor.find(filter)
-        .select("vendorCode namaBrand namaPerusahaan kategoriSpesialisasi subKategori email alamatPerusahaan photoUrl")
+        .select(
+          "vendorCode namaBrand namaPerusahaan kategoriSpesialisasi subKategori email telepon alamatPerusahaan photoUrl",
+        )
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
