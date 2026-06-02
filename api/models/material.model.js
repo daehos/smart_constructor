@@ -22,6 +22,11 @@ const materialSchema = new mongoose.Schema(
       trim: true,
       default: "kg",
     },
+    hargaSatuan: {
+      type: Number,
+      default: null,
+      min: 0,
+    },
     deletedAt: {
       type: Date,
       default: null,

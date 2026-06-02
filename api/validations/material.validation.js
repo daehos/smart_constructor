@@ -5,6 +5,7 @@ export const createMaterialValidation = z.object({
   kategori: z.string({ required_error: "Kategori wajib diisi" }).min(1, "Kategori wajib diisi").trim(),
   subKategori: z.string().trim().optional().default(""),
   satuan: z.string().trim().optional().default("kg"),
+  hargaSatuan: z.coerce.number().min(0).nullable().optional().default(null),
 });
 
 export const updateMaterialValidation = createMaterialValidation.partial();
