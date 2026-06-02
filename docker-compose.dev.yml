@@ -4,13 +4,13 @@
 #   docker network create smart_constructor_dev
 # Or: make docker-dev-network
 #
-# Full stack (API + Mongo + Redis + MinIO + OCR + WhatsApp), API on host port 8080:
+# Full stack (API + Mongo + Redis + MinIO + WhatsApp), API on host port 8080:
 #   make docker-dev-up
 #   docker compose -f docker-compose.dev.yml --profile api up -d --build
 #
 # Infra only (no API) — run the API on the host with `make dev`:
 #   make docker-dev-infra
-#   docker compose -f docker-compose.dev.yml up -d mongo redis minio minio-init ocr
+#   docker compose -f docker-compose.dev.yml up -d mongo redis minio minio-init
 #
 # The `api` and `whatsapp` services use Compose profile `api`; `make docker-dev-up` passes --profile api.
 
@@ -97,29 +97,6 @@ services:
       "
     restart: "no"
 
-  ocr:
-    build:
-      context: ./ocr-service
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    networks:
-      - sc
-    ports:
-      - "8100:8100"
-    environment:
-      FETCH_TIMEOUT_SECONDS: "15"
-    mem_limit: "1500m"
-    depends_on:
-      minio:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8100/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      # /health is instant; Paddle loads on first POST /ocr (not during startup).
-      start_period: 30s
-
   api:
     profiles: ["api"]
     build:
@@ -146,7 +123,6 @@ services:
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minio_dev_secret}
       MINIO_BUCKET_RECEIPTS: receipts
       MINIO_USE_SSL: "false"
-      OCR_SERVICE_URL: http://ocr:8100
     volumes:
       - .:/app
       - dev_api_node_modules:/app/api/node_modules
@@ -157,8 +133,6 @@ services:
       redis:
         condition: service_healthy
       minio:
-        condition: service_healthy
-      ocr:
         condition: service_healthy
 
   whatsapp:

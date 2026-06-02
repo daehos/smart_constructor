@@ -17,6 +17,7 @@ const MIME_TO_EXT = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
+  "application/pdf": "pdf",
 };
 
 export default class ReceiptService {
@@ -59,7 +60,6 @@ export default class ReceiptService {
     const skip = (page - 1) * limit;
     const [data, total] = await Promise.all([
       Receipt.find(filter)
-        .select("-rawOcr")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)

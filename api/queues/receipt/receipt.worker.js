@@ -1,10 +1,9 @@
-import axios from "axios";
 import { Worker } from "bullmq";
-import { config } from "../../configs/env.js";
-import { getReceiptPresignedUrl } from "../../configs/minio.config.js";
+import { getReceiptObjectBuffer } from "../../configs/minio.config.js";
 import { workerRedisClient } from "../../configs/redis.config.js";
 import constants from "../../constants/index.js";
 import Receipt from "../../models/receipt.model.js";
+import { extractReceipt } from "../../services/ocr/receipt-ocr.service.js";
 
 async function processReceipt(job) {
   const { receiptId } = job.data;
@@ -17,23 +16,9 @@ async function processReceipt(job) {
   receipt.status = "processing";
   await receipt.save();
 
-  const imageUrl = await getReceiptPresignedUrl(receipt.objectKey, 300);
+  const imageBuffer = await getReceiptObjectBuffer(receipt.objectKey);
+  const parsed = await extractReceipt(imageBuffer, receipt.mimeType);
 
-  let ocrResponse;
-  try {
-    ocrResponse = await axios.post(
-      `${config.ocr.serviceUrl}/ocr`,
-      { image_url: imageUrl },
-      { timeout: config.ocr.httpTimeoutMs },
-    );
-  } catch (err) {
-    const message = err.response?.data?.detail ?? err.message ?? "OCR service error";
-    throw new Error(message);
-  }
-
-  const { rawText, lines, parsed } = ocrResponse.data;
-
-  receipt.rawOcr = { text: rawText, lines };
   receipt.parsed = parsed;
   receipt.status = "done";
   receipt.error = null;

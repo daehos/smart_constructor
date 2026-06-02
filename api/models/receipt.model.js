@@ -4,33 +4,14 @@ const { Schema, Types } = mongoose;
 
 const RECEIPT_STATUS = ["queued", "processing", "done", "failed"];
 
-const bboxPointSchema = new Schema([Number], { _id: false });
-
-const ocrLineSchema = new Schema(
-  {
-    text: { type: String, required: true },
-    confidence: { type: Number },
-    bbox: { type: [[Number]] },
-  },
-  { _id: false },
-);
-
 const parsedItemSchema = new Schema(
   {
     name: { type: String, required: true },
     qty: { type: Number, default: 1 },
+    unit: { type: String, default: "pcs" },
     price: { type: Number, default: 0 },
-    subtotal: { type: Number, default: 0 },
   },
   { _id: true },
-);
-
-const rawOcrSchema = new Schema(
-  {
-    text: { type: String, default: "" },
-    lines: { type: [ocrLineSchema], default: [] },
-  },
-  { _id: false },
 );
 
 const parsedSchema = new Schema(
@@ -72,10 +53,6 @@ const receiptSchema = new Schema(
     },
     error: {
       type: String,
-      default: null,
-    },
-    rawOcr: {
-      type: rawOcrSchema,
       default: null,
     },
     parsed: {

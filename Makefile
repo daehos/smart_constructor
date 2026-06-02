@@ -8,7 +8,6 @@ PKG_MANAGER := $(shell command -v pnpm >/dev/null 2>&1 && echo pnpm || echo npm)
 	docker-dev-network docker-prod-network \
 	docker-dev-up docker-dev-infra docker-dev-down docker-dev-logs \
 	docker-dev-api-up docker-dev-api-logs \
-	docker-dev-ocr-build docker-dev-ocr-logs \
 	docker-dev-wa-logs \
 	docker-prod-up docker-prod-down docker-prod-logs docker-build
 
@@ -25,14 +24,12 @@ help:
 	@echo ""
 	@echo "  make docker-dev-network     Ensure external Docker network exists (smart_constructor_dev)"
 	@echo "  make docker-prod-network    Ensure external Docker network exists (smart_constructor_prod)"
-	@echo "  make docker-dev-up          Full dev stack in Docker (API on :8080 + Mongo + Redis + MinIO + OCR + WhatsApp)"
+	@echo "  make docker-dev-up          Full dev stack in Docker (API on :8080 + Mongo + Redis + MinIO + WhatsApp)"
 	@echo "  make docker-dev-infra       Deps only (no API) — then run API on host: make dev"
 	@echo "  make docker-dev-api-up      Alias for docker-dev-up"
 	@echo "  make docker-dev-down        Stop dev stack (including API/WhatsApp)"
 	@echo "  make docker-dev-logs        Follow Mongo + Redis logs"
 	@echo "  make docker-dev-api-logs    Follow API container logs"
-	@echo "  make docker-dev-ocr-build   Rebuild OCR Python image"
-	@echo "  make docker-dev-ocr-logs    Follow OCR service logs"
 	@echo "  make docker-dev-wa-logs     Follow WhatsApp worker logs (incl. QR code on first start)"
 	@echo "  make docker-build           Build API image (smart-constructor-api:local)"
 	@echo "  make docker-prod-up         Build and run full prod stack (needs api/.env)"
@@ -65,7 +62,7 @@ docker-dev-up: docker-dev-network
 	docker compose -f docker-compose.dev.yml --profile api up -d --build
 
 docker-dev-infra: docker-dev-network
-	docker compose -f docker-compose.dev.yml up -d mongo redis minio minio-init ocr
+	docker compose -f docker-compose.dev.yml up -d mongo redis minio minio-init
 
 docker-dev-api-up: docker-dev-up
 
@@ -77,12 +74,6 @@ docker-dev-logs:
 
 docker-dev-api-logs:
 	docker compose -f docker-compose.dev.yml logs -f api
-
-docker-dev-ocr-build:
-	docker compose -f docker-compose.dev.yml build ocr
-
-docker-dev-ocr-logs:
-	docker compose -f docker-compose.dev.yml logs -f ocr
 
 docker-dev-wa-logs:
 	docker compose -f docker-compose.dev.yml logs -f whatsapp

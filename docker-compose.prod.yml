@@ -1,4 +1,4 @@
-# Full stack: API + MongoDB + Redis + MinIO + OCR + WhatsApp (production).
+# Full stack: API + MongoDB + Redis + MinIO + WhatsApp (production).
 #
 # Requires an external Docker network (Compose does not create it):
 #   docker network create smart_constructor_prod
@@ -43,15 +43,12 @@ services:
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in api/.env}
       MINIO_BUCKET_RECEIPTS: receipts
       MINIO_USE_SSL: "false"
-      OCR_SERVICE_URL: http://ocr:8100
     depends_on:
       mongo:
         condition: service_healthy
       redis:
         condition: service_healthy
       minio:
-        condition: service_healthy
-      ocr:
         condition: service_healthy
 
   whatsapp:
@@ -78,26 +75,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-
-  ocr:
-    build:
-      context: ./ocr-service
-      dockerfile: Dockerfile
-    restart: unless-stopped
-    networks:
-      - sc
-    environment:
-      FETCH_TIMEOUT_SECONDS: "15"
-    mem_limit: "1500m"
-    depends_on:
-      minio:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8100/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
 
   minio:
     image: minio/minio:latest

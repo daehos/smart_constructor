@@ -52,7 +52,7 @@ so you only need a separate `whatsapp-service/.env` for local runs outside Docke
 ```bash
 # From repo root
 make install
-# Start Mongo + Redis in Docker
+# Start Mongo + Redis + MinIO in Docker
 make docker-dev-infra
 
 # Copy and fill env (MongoDB URI, Redis, etc.)

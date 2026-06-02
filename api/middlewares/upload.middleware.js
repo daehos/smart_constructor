@@ -2,7 +2,12 @@ import multer from "multer";
 import { config } from "../configs/env.js";
 import { BadRequestError } from "../errors/index.js";
 
-const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+]);
 
 export const receiptUpload = multer({
   storage: multer.memoryStorage(),
@@ -14,7 +19,7 @@ export const receiptUpload = multer({
     if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
       return cb(
         new BadRequestError({
-          message: "Invalid file type. Only JPEG, PNG, and WebP images are accepted.",
+          message: "Invalid file type. Only JPEG, PNG, WebP images, and PDF files are accepted.",
         }),
       );
     }

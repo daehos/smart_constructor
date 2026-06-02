@@ -33,9 +33,8 @@ const envSchema = z.object({
     .transform((v) => v === "true")
     .default("false"),
 
-  OCR_SERVICE_URL: z.string().url().default("http://127.0.0.1:8100"),
-  // First POST /ocr may download Paddle weights; allow several minutes unless overridden.
-  OCR_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(180000),
+  GEMINI_API_KEY: z.string().min(1),
+  GEMINI_MODEL: z.string().min(1).default("gemini-2.5-flash"),
 
   RECEIPT_MAX_UPLOAD_BYTES: z.coerce.number().int().positive().default(5242880),
 
@@ -93,9 +92,9 @@ export const config = Object.freeze({
     useSSL: parsed.data.MINIO_USE_SSL,
   },
 
-  ocr: {
-    serviceUrl: parsed.data.OCR_SERVICE_URL,
-    httpTimeoutMs: parsed.data.OCR_HTTP_TIMEOUT_MS,
+  gemini: {
+    apiKey: parsed.data.GEMINI_API_KEY.trim(),
+    model: parsed.data.GEMINI_MODEL.trim(),
   },
 
   receipt: {

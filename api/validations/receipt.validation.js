@@ -8,6 +8,7 @@ const objectIdSchema = z
 const confirmItemSchema = z.object({
   name: z.string().min(1),
   qty: z.coerce.number().int().min(1).default(1),
+  unit: z.string().min(1).optional(),
   price: z.coerce.number().min(0),
 });
 
