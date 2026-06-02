@@ -8,6 +8,7 @@ PKG_MANAGER := $(shell command -v pnpm >/dev/null 2>&1 && echo pnpm || echo npm)
 	docker-dev-network docker-prod-network \
 	docker-dev-up docker-dev-infra docker-dev-down docker-dev-logs \
 	docker-dev-api-up docker-dev-api-logs \
+	docker-dev-seed docker-dev-seed-reset \
 	docker-dev-wa-logs \
 	docker-prod-up docker-prod-down docker-prod-logs docker-build
 
@@ -30,6 +31,8 @@ help:
 	@echo "  make docker-dev-down        Stop dev stack (including API/WhatsApp)"
 	@echo "  make docker-dev-logs        Follow Mongo + Redis logs"
 	@echo "  make docker-dev-api-logs    Follow API container logs"
+	@echo "  make docker-dev-seed        Run seeders inside Docker api container"
+	@echo "  make docker-dev-seed-reset  Run seeders --reset inside Docker api container"
 	@echo "  make docker-dev-wa-logs     Follow WhatsApp worker logs (incl. QR code on first start)"
 	@echo "  make docker-build           Build API image (smart-constructor-api:local)"
 	@echo "  make docker-prod-up         Build and run full prod stack (needs api/.env)"
@@ -74,6 +77,12 @@ docker-dev-logs:
 
 docker-dev-api-logs:
 	docker compose -f docker-compose.dev.yml logs -f api
+
+docker-dev-seed:
+	docker compose -f docker-compose.dev.yml --profile api exec api node seeders/index.js
+
+docker-dev-seed-reset:
+	docker compose -f docker-compose.dev.yml --profile api exec api node seeders/index.js --reset
 
 docker-dev-wa-logs:
 	docker compose -f docker-compose.dev.yml logs -f whatsapp

@@ -333,7 +333,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"nama\": \"H-Beam 200x200\",\n  \"kategori\": \"Baja Struktural\",\n  \"subKategori\": \"H-Beam\",\n  \"satuan\": \"kg\"\n}"
+              "raw": "{\n  \"nama\": \"H-Beam 200x200\",\n  \"kategori\": \"Baja Struktural\",\n  \"subKategori\": \"H-Beam\",\n  \"satuan\": \"kg\",\n  \"hargaSatuan\": 18500\n}"
             },
             "url": "{{baseUrl}}/materials"
           }
@@ -353,7 +353,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"subKategori\": \"Wide Flange\"\n}"
+              "raw": "{\n  \"subKategori\": \"Wide Flange\",\n  \"hargaSatuan\": 19000\n}"
             },
             "url": "{{baseUrl}}/materials/{{material_id}}"
           }
